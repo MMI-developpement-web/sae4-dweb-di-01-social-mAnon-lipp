@@ -1,68 +1,100 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   1. Design tokens — valeurs modifiables par thème
+   Remplacer ces valeurs dans [data-theme="x"] { }
+   pour changer l'apparence sans toucher aux composants.
+───────────────────────────────────────────── */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* Couleurs principales */
+  --color-primary: #fbcc58;
+  --color-primary-hover: #f0b830;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* Surfaces & fond */
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  /* Typographie */
+  --color-text: #1a1a1a;
+  --color-text-muted: #8d8d8d;
+
+  /* Bordures & placeholders */
+  --color-border: #808080;
+  --color-border-muted: #adadad;
+  --color-placeholder: #9ca3af;
+
+  /* Danger */
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+
+  /* Dégradés de page */
+  --gradient-auth: linear-gradient(
+    155.25deg,
+    rgb(254, 243, 179) 0%,
+    rgb(233, 240, 245) 67.53%,
+    rgb(117, 186, 255) 121.09%
+  );
+}
+
+/* ─────────────────────────────────────────────
+   2. Tailwind v4 — exposition des tokens
+   @theme inline évite la double déclaration CSS.
+   Ces tokens génèrent les classes :
+     bg-primary, text-primary, border-primary…
+     bg-surface, bg-background, text-text…
+───────────────────────────────────────────── */
+@theme inline {
+  --font-poppins: "Poppins", sans-serif;
+
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+
+  --color-border: var(--color-border);
+  --color-border-muted: var(--color-border-muted);
+  --color-placeholder: var(--color-placeholder);
+
+  --color-danger: var(--color-danger);
+  --color-danger-hover: var(--color-danger-hover);
+}
+
+/* ─────────────────────────────────────────────
+   3. Utilitaires globaux
+───────────────────────────────────────────── */
+@layer utilities {
+  .bg-auth-gradient {
+    background: var(--gradient-auth);
+  }
+
+  .bg-login-bg {
+    background-color: rgba(117, 186, 255, 0.51);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: "Poppins", system-ui, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+  text-decoration: none;
 }
