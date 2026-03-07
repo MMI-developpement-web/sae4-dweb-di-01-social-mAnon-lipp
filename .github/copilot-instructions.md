@@ -29,6 +29,8 @@ A full-stack social network application built with:
 
 **Always refer to `docs/architecture.md`** for the complete project architecture and file structure before generating any code.
 
+**Always use Doctrine** but ask me to do it, every entity must be generated with a migration and made by me using Doctrine in the terminal, never edit the DB schema manually.
+
 ---
 
 ## Backend Rules — Symfony

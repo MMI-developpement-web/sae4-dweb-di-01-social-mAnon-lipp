@@ -22,6 +22,14 @@ security:
             pattern: ^/api
             stateless: true
             provider: app_user_provider
+            # JSON login for /api/login endpoint
+            json_login:
+                check_path: api.login
+                username_path: email
+                password_path: password
+                success_handler: null
+                failure_handler: null
+            # Bearer token authentication for other API routes
             access_token:
                 token_handler: App\Security\AccessTokenHandler
         

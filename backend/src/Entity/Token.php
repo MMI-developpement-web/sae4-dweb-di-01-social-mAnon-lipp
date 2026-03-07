@@ -13,10 +13,10 @@ class Token
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 64)]
     private ?string $value = null;
 
-    #[ORM\Column]
+    #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $expiresAt = null;
 
     #[ORM\Column]
@@ -84,6 +84,9 @@ class Token
      */
     public function isValid(): bool
     {
+        if ($this->expiresAt === null) {
+            return true; // No expiration = always valid
+        }
         return $this->expiresAt > new \DateTimeImmutable();
     }
 }

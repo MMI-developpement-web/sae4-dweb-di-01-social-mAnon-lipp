@@ -16,16 +16,14 @@ class TokenRepository extends ServiceEntityRepository
         parent::__construct($registry, Token::class);
     }
 
-//    /**
-//     * @return Token[] Returns an array of Token objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('t')
-//            ->andWhere('t.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('t.id', 'ASC')
-//            ->setMaxResults(10)
+    /**
+     * Find a token by its hashed value
+     */
+    public function findOneByValue(string $value): ?Token
+    {
+        return $this->findOneBy(['value' => $value]);
+    }
+
 //            ->getQuery()
 //            ->getResult()
 //        ;

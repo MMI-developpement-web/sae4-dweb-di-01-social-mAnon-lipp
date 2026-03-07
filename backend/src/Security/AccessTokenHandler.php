@@ -19,8 +19,8 @@ class AccessTokenHandler implements AccessTokenHandlerInterface
         // Hash the incoming token
         $hashedToken = hash('sha256', $accessToken);
         
-        // Find token in database
-        $token = $this->tokenRepository->findOneBy(['value' => $hashedToken]);
+        // Find token in database using dedicated repository method
+        $token = $this->tokenRepository->findOneByValue($hashedToken);
         
         // Validate token existence and expiration
         if ($token === null || !$token->isValid()) {
