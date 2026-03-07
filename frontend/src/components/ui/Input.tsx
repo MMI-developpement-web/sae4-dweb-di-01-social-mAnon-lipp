@@ -25,17 +25,20 @@ interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement>,
     VariantProps<typeof inputVariants> {
   label?: string;
+  error?: string;
 }
 
 export default function Input({
   variant,
   inputSize,
   label,
+  error,
   id,
   className,
   ...props
 }: InputProps) {
-  // Génère un id stable si label fourni mais pas d'id explicite
+  const hasError = !!error;
+  const finalVariant = hasError ? "error" : variant;
 
   return (
     <div className="flex flex-col gap-1">
@@ -47,9 +50,12 @@ export default function Input({
         </label>
       )}
       <input
-        className={cn(inputVariants({ variant, inputSize }), className)}
+        className={cn(inputVariants({ variant: finalVariant, inputSize }), className)}
         {...props}
       />
+      {error && (
+        <span className="text-xs text-danger font-poppins">{error}</span>
+      )}
     </div>
   );
 }
