@@ -7,6 +7,15 @@
 .env.production.local
 .env.test.local
 
+*.env
+.env
+.env.*
+
+backend/.env
+backend/.env.dev
+frontend/.env
+
+
 # Node
 node_modules/
 npm-debug.log*

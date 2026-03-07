@@ -5,12 +5,20 @@ import "./index.css";
 
 import Register from "./routes/register";
 import Login from "./routes/login";
+import Feed, { loader as feedLoader } from "./routes/feed";
 import ErrorPage from "./routes/error";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Register />,
+    element: <Feed />,
+    loader: feedLoader,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: "/feed",
+    element: <Feed />,
+    loader: feedLoader,
     errorElement: <ErrorPage />,
   },
   {

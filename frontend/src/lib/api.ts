@@ -61,3 +61,31 @@ export async function login(data: LoginData): Promise<AuthResponse> {
     body: JSON.stringify(data),
   });
 }
+
+// Tweet API
+export interface TweetAuthor {
+  id: number;
+  username: string;
+}
+
+export interface Tweet {
+  id: number;
+  content: string;
+  createdAt: string;
+  author: TweetAuthor;
+}
+
+export interface Pagination {
+  current_page: number;
+  per_page: number;
+  total_items: number;
+}
+
+export interface TweetsResponse {
+  tweets: Tweet[];
+  pagination: Pagination;
+}
+
+export async function fetchTweets(page: number, perPage = 20): Promise<TweetsResponse> {
+  return apiFetch<TweetsResponse>(`/tweets?page=${page}&per_page=${perPage}`);
+}

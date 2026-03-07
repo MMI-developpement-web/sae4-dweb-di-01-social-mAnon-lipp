@@ -29,7 +29,7 @@ A full-stack social network application built with:
 
 **Always refer to `docs/architecture.md`** for the complete project architecture and file structure before generating any code.
 
-**Always use Doctrine** but ask me to do it, every entity must be generated with a migration and made by me using Doctrine in the terminal, never edit the DB schema manually.
+**Always use Doctrine** but ask me to do it, every entity must be generated with a migration and made by me using Doctrine in the terminal, never edit the DB schema manually.Never ever write into the Entity folder without asking me, I will generate the entity and the migration with Doctrine. You have to always ask to generate the entity and the migration with Doctrine, never write into the Entity folder without asking me.
 
 ---
 

@@ -27,6 +27,12 @@
   --color-danger: #ef4444;
   --color-danger-hover: #dc2626;
 
+  /* Tweet feed */
+  --color-tweet-bg: #fbf3c0;
+  --color-tweet-author: #59a5b2;
+  --color-tweet-meta: #5b7083;
+  --color-tweet-text: #0f1419;
+
   /* Dégradés de page */
   --gradient-auth: linear-gradient(
     155.25deg,
@@ -61,6 +67,11 @@
 
   --color-danger: var(--color-danger);
   --color-danger-hover: var(--color-danger-hover);
+
+  --color-tweet-bg: var(--color-tweet-bg);
+  --color-tweet-author: var(--color-tweet-author);
+  --color-tweet-meta: var(--color-tweet-meta);
+  --color-tweet-text: var(--color-tweet-text);
 }
 
 /* ─────────────────────────────────────────────
