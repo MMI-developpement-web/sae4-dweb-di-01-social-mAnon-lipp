@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { redirect, useFetcher, useLoaderData } from "react-router-dom";
-import NavBar from "../components/NavBar/NavBar";
+import Header from "../components/Header";
+import NavBar from "../components/NavBar";
 import TweetCard from "../components/ui/TweetCard";
 import { fetchTweets, type TweetsResponse } from "../lib/api";
 
@@ -56,8 +57,8 @@ export default function Feed() {
   }, [loadMore]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <NavBar />
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <Header />
       <main className="flex flex-col gap-[21px] px-5 py-5">
         {tweets.map((tweet) => (
           <TweetCard key={tweet.id} tweet={tweet} />
@@ -71,6 +72,7 @@ export default function Feed() {
 
         <div ref={sentinelRef} className="h-1" aria-hidden />
       </main>
+      <NavBar />
     </div>
   );
 }

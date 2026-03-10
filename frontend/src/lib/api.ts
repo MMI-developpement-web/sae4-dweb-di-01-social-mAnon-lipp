@@ -9,7 +9,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     },
     ...options,
   });
-  if (res.status === 401) {
+  if (res.status === 401 && !window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/register")) {
     localStorage.removeItem("auth_token");
     window.location.href = "/login";
   }
@@ -88,4 +88,11 @@ export interface TweetsResponse {
 
 export async function fetchTweets(page: number, perPage = 20): Promise<TweetsResponse> {
   return apiFetch<TweetsResponse>(`/tweets?page=${page}&per_page=${perPage}`);
+}
+
+export async function postTweet(content: string): Promise<Tweet> {
+  return apiFetch<Tweet>("/tweets", {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
 }

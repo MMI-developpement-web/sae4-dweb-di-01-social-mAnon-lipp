@@ -24,8 +24,8 @@ export default function LoginForm() {
       
       // Redirect to home/feed
       navigate("/");
-    } catch (err: any) {
-      setError(err?.error || "Une erreur est survenue lors de la connexion");
+    } catch {
+      setError("Email ou mot de passe incorrect.");
     } finally {
       setIsLoading(false);
     }
