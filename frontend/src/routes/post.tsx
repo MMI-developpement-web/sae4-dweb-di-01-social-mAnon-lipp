@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { redirect, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import Button from "../components/ui/Button";
+import Textarea from "../components/ui/Textarea";
 import { postTweet } from "../lib/api";
 
 const MAX = 280;
@@ -41,22 +43,28 @@ export default function Post() {
       <div className="px-5 pt-[50px]">
         {/* Header row */}
         <div className="flex items-center justify-between mb-[21px]">
-          <button onClick={() => navigate(-1)} className="text-text" aria-label="Retour">
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
+            onClick={() => navigate(-1)}
+            aria-label="Retour"
+          >
             <svg className="w-[13px] h-5" viewBox="0 0 13 20" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <path d="M11 2L2 10l9 8" />
             </svg>
-          </button>
+          </Button>
           <p className="text-[14px] font-medium font-poppins text-[#0f1419]">Nouveau post</p>
           <div className="w-[13px]" />
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          <textarea
+          <Textarea
+            variant={isOver ? "error" : "post"}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Partagez votre éclat..."
-            className="w-full h-[156px] rounded-[9px] border-3 border-primary/60 px-[15px] py-[12px] text-[14px] font-poppins font-medium text-text placeholder:text-border-muted resize-none focus:outline-none focus:border-primary"
             maxLength={MAX + 1}
           />
 
@@ -75,13 +83,13 @@ export default function Post() {
           )}
 
           <div className="flex justify-end mt-1">
-            <button
+            <Button
               type="submit"
+              size="xs"
               disabled={loading || isOver || !content.trim()}
-              className="bg-primary text-white text-[16px] font-poppins font-medium rounded-[10px] px-6 h-[33px] shadow-[0px_4px_19px_0px_rgba(119,147,65,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Publier
-            </button>
+            </Button>
           </div>
         </form>
       </div>

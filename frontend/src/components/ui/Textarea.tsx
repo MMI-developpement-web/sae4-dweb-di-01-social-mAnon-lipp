@@ -1,0 +1,65 @@
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "../../lib/utils";
+
+const textareaVariants = cva(
+  "w-full rounded-[9px] border bg-surface font-poppins font-medium text-text placeholder:text-placeholder resize-none focus:outline-none transition-colors",
+  {
+    variants: {
+      variant: {
+        default: "border-border focus:border-primary/60",
+        post: "border-primary/60 focus:border-primary placeholder:text-border-muted",
+        error: "border-danger focus:ring-2 focus:ring-danger/30 text-danger",
+      },
+      textareaSize: {
+        sm: "h-24 px-3 py-2 text-xs",
+        md: "h-[156px] px-[15px] py-[12px] text-[14px]",
+      },
+    },
+    compoundVariants: [
+      // Variant post en taille md → bordure épaisse spécifique au formulaire de post
+      {
+        variant: "post",
+        textareaSize: "md",
+        class: "border-3",
+      },
+      // Variant error en taille md → bordure double pour accentuer l'état d'erreur
+      {
+        variant: "error",
+        textareaSize: "md",
+        class: "border-2",
+      },
+    ],
+    defaultVariants: {
+      variant: "default",
+      textareaSize: "md",
+    },
+  }
+);
+
+interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+    VariantProps<typeof textareaVariants> {
+  error?: string;
+}
+
+export default function Textarea({
+  variant,
+  textareaSize,
+  error,
+  className,
+  ...props
+}: TextareaProps) {
+  const finalVariant = error ? "error" : variant;
+
+  return (
+    <div className="flex flex-col gap-1 w-full">
+      <textarea
+        className={cn(textareaVariants({ variant: finalVariant, textareaSize }), className)}
+        {...props}
+      />
+      {error && (
+        <span className="text-xs text-danger font-poppins">{error}</span>
+      )}
+    </div>
+  );
+}

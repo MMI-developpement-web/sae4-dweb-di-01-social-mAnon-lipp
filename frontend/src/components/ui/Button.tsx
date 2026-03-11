@@ -16,11 +16,27 @@ const buttonVariants = cva(
           "bg-transparent border border-primary text-primary hover:bg-primary/10",
       },
       size: {
+        xs: "h-[33px] px-6 text-base",
         sm: "h-9 px-4 text-sm",
         md: "h-[54px] px-6 text-base",
         lg: "h-14 px-8 text-lg",
+        icon: "size-9 p-0",
       },
     },
+    compoundVariants: [
+      // Bouton icône ghost → forme circulaire
+      {
+        variant: "ghost",
+        size: "icon",
+        class: "rounded-full",
+      },
+      // Bouton icône outline → cercle avec bordure renforcée
+      {
+        variant: "outline",
+        size: "icon",
+        class: "rounded-full border-2",
+      },
+    ],
     defaultVariants: {
       variant: "primary",
       size: "md",
