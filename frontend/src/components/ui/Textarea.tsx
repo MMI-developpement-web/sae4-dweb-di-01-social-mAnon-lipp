@@ -16,13 +16,11 @@ const textareaVariants = cva(
       },
     },
     compoundVariants: [
-      // Variant post en taille md → bordure épaisse spécifique au formulaire de post
       {
         variant: "post",
         textareaSize: "md",
         class: "border-3",
       },
-      // Variant error en taille md → bordure double pour accentuer l'état d'erreur
       {
         variant: "error",
         textareaSize: "md",
@@ -49,12 +47,13 @@ export default function Textarea({
   className,
   ...props
 }: TextareaProps) {
-  const finalVariant = error ? "error" : variant;
-
   return (
     <div className="flex flex-col gap-1 w-full">
       <textarea
-        className={cn(textareaVariants({ variant: finalVariant, textareaSize }), className)}
+        className={cn(
+          textareaVariants({ variant: error ? "error" : variant, textareaSize }),
+          className
+        )}
         {...props}
       />
       {error && (

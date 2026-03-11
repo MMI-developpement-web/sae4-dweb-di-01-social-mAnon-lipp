@@ -29,33 +29,26 @@ interface InputProps
 }
 
 export default function Input({
-  variant,
-  inputSize,
   label,
   error,
-  id,
+  variant,
+  inputSize,
   className,
   ...props
 }: InputProps) {
-  const hasError = !!error;
-  const finalVariant = hasError ? "error" : variant;
-
   return (
     <div className="flex flex-col gap-1">
-      {label && (
-        <label
-          className="font-poppins text-[14px] font-normal text-text"
-        >
-          {label}
-        </label>
-      )}
+      {label && <label className="text-sm">{label}</label>}
+
       <input
-        className={cn(inputVariants({ variant: finalVariant, inputSize }), className)}
+        className={cn(
+          inputVariants({ variant: error ? "error" : variant, inputSize }),
+          className
+        )}
         {...props}
       />
-      {error && (
-        <span className="text-xs text-danger font-poppins">{error}</span>
-      )}
+
+      {error && <span className="text-xs text-danger">{error}</span>}
     </div>
   );
 }
