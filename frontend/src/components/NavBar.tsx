@@ -1,6 +1,10 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "../lib/utils";
 
+type NavBarProps = {
+  mode?: "mobile" | "desktop";
+};
+
 function HomeIcon({ className }: { className?: string }) {
   return (
     <svg className={cn("w-6 h-6", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -10,7 +14,26 @@ function HomeIcon({ className }: { className?: string }) {
   );
 }
 
-export default function NavBar() {
+export default function NavBar({ mode = "mobile" }: NavBarProps) {
+  if (mode === "desktop") {
+    const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
+      cn(
+        "text-sm font-medium text-text-muted transition-colors",
+        isActive && "text-tweet-author"
+      );
+
+    return (
+      <nav className="hidden md:flex items-center gap-6">
+        <NavLink to="/feed" className={desktopLinkClass}>
+          Accueil
+        </NavLink>
+        <NavLink to="/post" className={desktopLinkClass}>
+          Poster
+        </NavLink>
+      </nav>
+    );
+  }
+
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn("flex flex-col items-center gap-1 text-xs text-text-muted transition-colors", isActive && "text-tweet-author");
 

@@ -1,3 +1,5 @@
+import NavBar from "./NavBar";
+
 const LOGO_SRC = "/20260307_1245_Image Generation_remix_01kk41v993esavk7xpb3br8675.png";
 
 export default function Header() {
@@ -9,6 +11,7 @@ export default function Header() {
           alt="Logo"
           className="w-[58px] h-[65px] object-contain"
         />
+        <NavBar mode="desktop" />
       </div>
     </header>
   );
