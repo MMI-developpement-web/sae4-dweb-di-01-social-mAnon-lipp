@@ -48,6 +48,29 @@ export interface AuthResponse {
   };
 }
 
+/**
+ * Logout the current user
+ * Clears the auth token from localStorage and redirects to login
+ */
+export async function logout(): Promise<void> {
+  const token = localStorage.getItem("auth_token");
+  
+  try {
+    // Call the logout endpoint on the server
+    await apiFetch("/logout", { method: "POST" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    // Continue with logout even if the server call fails
+  }
+  
+  // Clear the token from localStorage
+  localStorage.removeItem("auth_token");
+  
+  // Redirect to login page
+  window.location.href = "/login";
+}
+
+
 export async function register(data: RegisterData): Promise<AuthResponse> {
   return apiFetch<AuthResponse>("/register", {
     method: "POST",

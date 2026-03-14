@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import Button from "../components/ui/Button";
 import Textarea from "../components/ui/Textarea";
 import { postTweet } from "../lib/api";
+import NavBar from "../components/NavBar";
 
 const MAX = 280;
 
@@ -93,6 +94,7 @@ export default function Post() {
           </div>
         </form>
       </div>
+      <NavBar />
     </div>
   );
 }

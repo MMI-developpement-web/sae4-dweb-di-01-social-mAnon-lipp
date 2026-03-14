@@ -1,5 +1,6 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "../lib/utils";
+import { logout } from "../lib/api";
 
 type NavBarProps = {
   mode?: "mobile" | "desktop";
@@ -14,7 +15,22 @@ function HomeIcon({ className }: { className?: string }) {
   );
 }
 
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("w-6 h-6", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
 export default function NavBar({ mode = "mobile" }: NavBarProps) {
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
   if (mode === "desktop") {
     const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
       cn(
@@ -30,6 +46,9 @@ export default function NavBar({ mode = "mobile" }: NavBarProps) {
         <NavLink to="/post" className={desktopLinkClass}>
           Poster
         </NavLink>
+        <button onClick={handleLogout} className={desktopLinkClass({ isActive: false })}>
+          Déconnexion
+        </button>
       </nav>
     );
   }
@@ -53,11 +72,17 @@ export default function NavBar({ mode = "mobile" }: NavBarProps) {
           </span>
           <span>Poster</span>
         </NavLink>
-        {/* <NavLink to="/profile" className={linkClass}>
-          <ProfileIcon />
-          <span>Profil</span>
-        </NavLink> */}
+        <button
+          onClick={handleLogout}
+          className={linkClass({ isActive: false })}
+          title="Déconnexion"
+          type="button"
+        >
+          <LogoutIcon />
+          <span>Déconnecter</span>
+        </button>
       </nav>
     </>
   );
 }
+

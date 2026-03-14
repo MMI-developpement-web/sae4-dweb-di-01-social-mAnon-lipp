@@ -24,6 +24,7 @@ class SecurityController extends AbstractController
             'password_parameter'   => '_password',
             'last_username'        => $authenticationUtils->getLastUsername(),
             'error'                => $authenticationUtils->getLastAuthenticationError(),
+            'target_path'          => 'admin',
         ]);
     }
 

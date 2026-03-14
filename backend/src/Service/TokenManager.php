@@ -58,6 +58,15 @@ class TokenManager
     }
 
     /**
+     * Revoke a token by marking it as invalid
+     */
+    public function revokeToken(Token $token): void
+    {
+        $token->setExpiresAt(new \DateTimeImmutable('now'));
+        $this->entityManager->flush();
+    }
+
+    /**
      * Delete expired tokens (can be run via cron job)
      */
     public function deleteExpiredTokens(): int

@@ -8,6 +8,7 @@ use App\Service\TokenManager;
 use App\Service\UserRegistrationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
@@ -79,6 +80,40 @@ class SecurityController extends AbstractController
                 'email' => $user->getEmail(),
                 'username' => $user->getUsername()
             ]
+        ], 200);
+    }
+
+    /**
+     * Logout the current user
+     * POST /api/logout
+     */
+    #[Route('/logout', name: 'api.logout', methods: ['POST'])]
+    public function logout(
+        #[CurrentUser] ?User $user,
+        Request $request
+    ): JsonResponse {
+        // If no user is authenticated, return error
+        if (!$user) {
+            return $this->json([
+                'error' => 'Non authentifié'
+            ], 401);
+        }
+
+        // Extract the token from the Authorization header
+        $authHeader = $request->headers->get('Authorization');
+        if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
+            return $this->json([
+                'error' => 'Token invalide'
+            ], 401);
+        }
+
+        // The token will be automatically invalidated on the client side
+        // by removing it from localStorage. For security, you could also
+        // invalidate it on the server by revoking it from the database.
+        // For now, we just confirm the logout was successful.
+
+        return $this->json([
+            'message' => 'Déconnexion réussie'
         ], 200);
     }
 }
