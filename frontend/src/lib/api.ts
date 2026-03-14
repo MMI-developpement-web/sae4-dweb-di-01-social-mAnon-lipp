@@ -53,7 +53,6 @@ export interface AuthResponse {
  * Clears the auth token from localStorage and redirects to login
  */
 export async function logout(): Promise<void> {
-  const token = localStorage.getItem("auth_token");
   
   try {
     // Call the logout endpoint on the server

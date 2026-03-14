@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { cn } from "../lib/utils";
 import { logout } from "../lib/api";
 
