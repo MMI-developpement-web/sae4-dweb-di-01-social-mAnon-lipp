@@ -38,22 +38,18 @@ function formatDate(isoDate: string): string {
 export default function TweetCard({ tweet, variant, className }: TweetCardProps) {
   return (
     <article className={cn(tweetCardVariants({ variant }), className)}>
-      <div className="flex gap-[10px] items-start w-full">
-        <div className="flex flex-col items-start flex-1 min-w-0">
-          <div className="flex gap-1 items-center text-[15px] pb-1 w-full whitespace-nowrap overflow-hidden">
-            <span className="font-semibold text-tweet-author shrink-0">
-              {tweet.author.username}
-            </span>
-            <span className="text-tweet-meta shrink-0">·</span>
-            <span className="text-tweet-meta font-medium shrink-0">
-              {formatDate(tweet.createdAt)}
-            </span>
-          </div>
-          <p className="text-tweet-text text-[14px] font-medium leading-normal break-words w-full">
-            {tweet.content}
-          </p>
-        </div>
-      </div>
+      <header className="flex gap-1 items-center text-sm pb-1 w-full whitespace-nowrap overflow-hidden">
+        <span className="font-semibold text-tweet-author shrink-0">
+          {tweet.author.username}
+        </span>
+        <span className="text-tweet-meta shrink-0">·</span>
+        <span className="text-tweet-meta font-medium shrink-0">
+          {formatDate(tweet.createdAt)}
+        </span>
+      </header>
+      <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
+        {tweet.content}
+      </p>
     </article>
   );
 }

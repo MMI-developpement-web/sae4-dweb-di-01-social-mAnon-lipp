@@ -46,7 +46,7 @@ export default function NavBar({ mode = "mobile" }: NavBarProps) {
           <span>Accueil</span>
         </NavLink>
         <NavLink to="/post" className={({ isActive }) => cn("flex flex-col items-center gap-1 text-xs transition-colors", isActive ? "text-tweet-author" : "text-text-muted")}>
-          <span className="flex items-center justify-center w-12 h-12 bg-primary rounded-full shadow-[0px_4px_19px_0px_rgba(119,147,65,0.3)] -mt-5">
+          <span className="flex items-center justify-center w-12 h-12 bg-primary rounded-full shadow-primary -mt-5">
             <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
               <path d="M12 5v14M5 12h14" />
             </svg>

@@ -48,28 +48,30 @@ export default function PostForm({ onSuccess }: PostFormProps) {
         maxLength={MAX + 1}
       />
 
-      <div className="flex items-center justify-between">
-        <span className={`text-[12px] font-poppins font-medium ${isOver ? "text-danger" : "text-tweet-author"}`}>
-          {content.length} / {MAX}
-        </span>
-      </div>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-poppins font-medium ${isOver ? "text-danger" : "text-tweet-author"}`}>
+            {content.length} / {MAX}
+          </span>
+        </div>
 
-      {isOver && (
-        <p className="text-danger text-xs font-poppins">Limite de {MAX} caractères atteinte.</p>
-      )}
+        {isOver && (
+          <p className="text-danger text-xs font-poppins">Limite de {MAX} caractères atteinte.</p>
+        )}
 
-      {error && (
-        <p className="text-danger text-xs font-poppins">{error}</p>
-      )}
+        {error && (
+          <p className="text-danger text-xs font-poppins">{error}</p>
+        )}
 
-      <div className="flex justify-end mt-1">
-        <Button
-          type="submit"
-          size="xs"
-          disabled={loading || isOver || !content.trim()}
-        >
-          Publier
-        </Button>
+        <div className="flex justify-end mt-1">
+          <Button
+            type="submit"
+            size="xs"
+            disabled={loading || isOver || !content.trim()}
+          >
+            Publier
+          </Button>
+        </div>
       </div>
     </form>
   );

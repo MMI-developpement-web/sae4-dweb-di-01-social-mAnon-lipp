@@ -32,18 +32,18 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-[758px] w-full max-w-[326px] flex-col rounded-[40px] bg-surface px-6 py-11">
+    <section className="flex form-container w-full max-w-80 flex-col rounded-2xl bg-surface px-6 py-11">
       <header className="flex flex-col gap-2">
-        <h1 className="font-poppins text-[20px] font-bold text-text">
+        <h1 className="font-poppins text-xl font-bold text-text">
           Ravi de vous revoir
         </h1>
-        <p className="font-poppins text-[24px] font-medium leading-tight text-text">
+        <p className="font-poppins text-2xl font-medium leading-tight text-text">
           Faites briller votre feed.
         </p>
       </header>
 
-      <form className="mt-[88px] flex flex-1 flex-col justify-between" onSubmit={handleSubmit} noValidate>
-        <div className="flex flex-col gap-[38px]">
+      <form className="mt-24 flex flex-1 flex-col justify-between" onSubmit={handleSubmit} noValidate>
+        <div className="flex flex-col gap-10">
           {error && (
             <div className="rounded-md bg-danger/10 p-3 text-sm text-danger font-poppins">
               {error}
@@ -72,7 +72,7 @@ export default function LoginForm() {
             <div className="flex justify-end">
               <Link
                 to="/forgot-password"
-                className="font-poppins text-[11px] text-primary hover:underline"
+                className="font-poppins text-xs text-primary hover:underline"
               >
                 Mot de passe oublié ?
               </Link>
@@ -80,8 +80,8 @@ export default function LoginForm() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-[47px]">
-          <p className="font-poppins text-[13px] text-text-muted">
+        <div className="flex flex-col gap-12">
+          <p className="font-poppins text-xs text-text-muted">
             Pas de compte ?{" "}
             <Link to="/register" className="text-primary hover:underline">
               Inscrivez vous
@@ -98,6 +98,6 @@ export default function LoginForm() {
           </Button>
         </div>
       </form>
-    </div>
+    </section>
   );
 }

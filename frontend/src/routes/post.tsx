@@ -15,9 +15,9 @@ export default function Post() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
-      <div className="px-5 pt-[50px]">
+      <div className="px-5 pt-12">
         {/* Header row */}
-        <div className="flex items-center justify-between mb-[21px]">
+        <div className="flex items-center justify-between mb-5">
           <Button
             variant="ghost"
             size="icon"
@@ -25,12 +25,12 @@ export default function Post() {
             onClick={() => navigate(-1)}
             aria-label="Retour"
           >
-            <svg className="w-[13px] h-5" viewBox="0 0 13 20" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <svg className="w-3 h-5" viewBox="0 0 13 20" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <path d="M11 2L2 10l9 8" />
             </svg>
           </Button>
-          <p className="text-[14px] font-medium font-poppins text-[#0f1419]">Nouveau post</p>
-          <div className="w-[13px]" />
+          <p className="text-sm font-medium font-poppins text-tweet-text">Nouveau post</p>
+          <div className="w-3" />
         </div>
 
         {/* Form */}

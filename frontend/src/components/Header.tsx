@@ -9,7 +9,7 @@ export default function Header() {
         <img
           src={LOGO_SRC}
           alt="Logo"
-          className="w-[58px] h-[65px] object-contain"
+          className="w-16 h-16 object-contain"
         />
         <NavBar mode="desktop" />
       </div>
