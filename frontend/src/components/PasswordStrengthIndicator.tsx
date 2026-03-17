@@ -42,7 +42,7 @@ export default function PasswordStrengthIndicator({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
         <div
           className={cn(
             "h-full transition-all duration-300",

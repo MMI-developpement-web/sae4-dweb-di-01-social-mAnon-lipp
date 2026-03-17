@@ -59,7 +59,7 @@ export default function Feed() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
-      <main className="flex flex-col gap-[21px] px-5 py-5">
+      <main className="flex flex-col gap-5 px-5 py-5">
         {tweets.map((tweet) => (
           <TweetCard key={tweet.id} tweet={tweet} />
         ))}

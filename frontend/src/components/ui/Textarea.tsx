@@ -2,7 +2,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 const textareaVariants = cva(
-  "w-full rounded-[9px] border bg-surface font-poppins font-medium text-text placeholder:text-placeholder resize-none focus:outline-none transition-colors",
+  "w-full rounded-md border bg-surface font-poppins font-medium text-text placeholder:text-placeholder resize-none focus:outline-none transition-colors",
   {
     variants: {
       variant: {
@@ -12,7 +12,7 @@ const textareaVariants = cva(
       },
       textareaSize: {
         sm: "h-24 px-3 py-2 text-xs",
-        md: "h-[156px] px-[15px] py-[12px] text-[14px]",
+        md: "h-40 px-4 py-3 text-sm",
       },
     },
     compoundVariants: [

@@ -72,6 +72,9 @@
   --color-tweet-author: var(--color-tweet-author);
   --color-tweet-meta: var(--color-tweet-meta);
   --color-tweet-text: var(--color-tweet-text);
+
+  /* Shadows */
+  --shadow-primary: 0 4px 19px 0 rgba(119, 147, 65, 0.3);
 }
 
 /* ─────────────────────────────────────────────
@@ -84,6 +87,10 @@
 
   .bg-login-bg {
     background-color: rgba(117, 186, 255, 0.51);
+  }
+
+  .form-container {
+    min-height: 758px;
   }
 }
 
