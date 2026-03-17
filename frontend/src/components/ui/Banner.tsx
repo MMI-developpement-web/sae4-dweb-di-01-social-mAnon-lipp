@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "../../lib/utils";
+import { cn, getImageUrl } from "../../lib/utils";
 
 const bannerVariants = cva(
   "w-full flex-shrink-0 object-cover",
@@ -22,7 +22,9 @@ interface BannerProps extends VariantProps<typeof bannerVariants> {
 }
 
 export default function Banner({ src, alt = "Banner", height, className }: BannerProps) {
-  if (!src) {
+  const imageUrl = getImageUrl(src);
+
+  if (!imageUrl) {
     return (
       <div
         className={cn(
@@ -36,7 +38,7 @@ export default function Banner({ src, alt = "Banner", height, className }: Banne
 
   return (
     <img
-      src={src}
+      src={imageUrl}
       alt={alt}
       className={cn(bannerVariants({ height }), className)}
     />
