@@ -3,7 +3,9 @@
 namespace App\Controller\Api;
 
 use App\Entity\Tweet;
+use App\Entity\User;
 use App\Repository\TweetRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,6 +21,7 @@ class TweetController extends AbstractController
 {
     public function __construct(
         private TweetRepository $tweetRepository,
+        private UserRepository $userRepository,
         private EntityManagerInterface $em,
         private ValidatorInterface $validator,
     ) {
@@ -77,4 +80,52 @@ class TweetController extends AbstractController
 
         return $this->json($tweet, 201, [], ['groups' => 'default']);
     }
+
+    /**
+     * Get user profile with tweets
+     * GET /api/users/{id}
+     */
+    #[Route('/users/{id}', name: 'api.users.profile', methods: ['GET'])]
+    public function profile(int $id, Request $request): JsonResponse
+    {
+        $user = $this->userRepository->find($id);
+
+        if (!$user) {
+            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
+        }
+
+        $page = max(1, (int) $request->query->get('page', 1));
+        $perPage = min(50, max(1, (int) $request->query->get('per_page', 20)));
+        $offset = ($page - 1) * $perPage;
+
+        // Get tweets for this user
+        $tweets = $this->tweetRepository->findBy(
+            ['author' => $user],
+            ['createdAt' => 'DESC'],
+            $perPage,
+            $offset
+        );
+
+        $total = $this->tweetRepository->count(['author' => $user]);
+
+        return $this->json([
+            'user' => [
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+                'email' => $user->getEmail(),
+                'bio' => $user->getBio(),
+                'profilePicture' => $user->getProfilePicture(),
+                'banner' => $user->getBannerPicture(),
+                'location' => $user->getLocation(),
+                'website' => $user->getWebsite(),
+            ],
+            'tweets' => $tweets,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total_items' => $total,
+            ],
+        ], 200, [], ['groups' => 'default']);
+    }
 }
+

@@ -88,6 +88,7 @@ export async function login(data: LoginData): Promise<AuthResponse> {
 export interface TweetAuthor {
   id: number;
   username: string;
+  profilePicture?: string;
 }
 
 export interface Tweet {
@@ -103,7 +104,24 @@ export interface Pagination {
   total_items: number;
 }
 
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  bio?: string;
+  profilePicture?: string;
+  banner?: string;
+  location?: string;
+  website?: string;
+}
+
 export interface TweetsResponse {
+  tweets: Tweet[];
+  pagination: Pagination;
+}
+
+export interface ProfileResponse {
+  user: User;
   tweets: Tweet[];
   pagination: Pagination;
 }
@@ -117,4 +135,20 @@ export async function postTweet(content: string): Promise<Tweet> {
     method: "POST",
     body: JSON.stringify({ content }),
   });
+}
+
+/**
+ * Fetch current user profile
+ * GET /api/me
+ */
+export async function fetchCurrentUser(): Promise<User> {
+  return apiFetch<User>("/me");
+}
+
+/**
+ * Fetch user profile with tweets
+ * GET /api/users/:id
+ */
+export async function fetchUserProfile(userId: number, page = 1, perPage = 20): Promise<ProfileResponse> {
+  return apiFetch<ProfileResponse>(`/users/${userId}?page=${page}&per_page=${perPage}`);
 }

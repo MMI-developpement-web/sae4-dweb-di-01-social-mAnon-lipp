@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -51,6 +52,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\OneToMany(targetEntity: Tweet::class, mappedBy: 'author')]
     private Collection $tweets;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $bio = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['default'])]
+    private ?string $profilePicture = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $bannerPicture = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $location = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $website = null;
 
     public function __construct()
     {
@@ -207,6 +224,66 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 $tweet->setAuthor(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getBio(): ?string
+    {
+        return $this->bio;
+    }
+
+    public function setBio(?string $bio): static
+    {
+        $this->bio = $bio;
+
+        return $this;
+    }
+
+    public function getProfilePicture(): ?string
+    {
+        return $this->profilePicture;
+    }
+
+    public function setProfilePicture(?string $profilePicture): static
+    {
+        $this->profilePicture = $profilePicture;
+
+        return $this;
+    }
+
+    public function getBannerPicture(): ?string
+    {
+        return $this->bannerPicture;
+    }
+
+    public function setBannerPicture(?string $bannerPicture): static
+    {
+        $this->bannerPicture = $bannerPicture;
+
+        return $this;
+    }
+
+    public function getLocation(): ?string
+    {
+        return $this->location;
+    }
+
+    public function setLocation(?string $location): static
+    {
+        $this->location = $location;
+
+        return $this;
+    }
+
+    public function getWebsite(): ?string
+    {
+        return $this->website;
+    }
+
+    public function setWebsite(?string $website): static
+    {
+        $this->website = $website;
 
         return $this;
     }

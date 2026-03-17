@@ -1,9 +1,11 @@
 import { cva, type VariantProps } from "class-variance-authority";
+import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import type { Tweet } from "../../lib/api";
+import Avatar from "./Avatar";
 
 const tweetCardVariants = cva(
-  "flex flex-col items-start rounded-lg p-4 w-full",
+  "flex gap-3 items-start rounded-lg p-4 w-full",
   {
     variants: {
       variant: {
@@ -36,20 +38,48 @@ function formatDate(isoDate: string): string {
 }
 
 export default function TweetCard({ tweet, variant, className }: TweetCardProps) {
+  const navigate = useNavigate();
+
+  const handleAuthorClick = () => {
+    navigate(`/profile/${tweet.author.id}`);
+  };
+
   return (
     <article className={cn(tweetCardVariants({ variant }), className)}>
-      <header className="flex gap-1 items-center text-sm pb-1 w-full whitespace-nowrap overflow-hidden">
-        <span className="font-semibold text-tweet-author shrink-0">
-          {tweet.author.username}
-        </span>
-        <span className="text-tweet-meta shrink-0">·</span>
-        <span className="text-tweet-meta font-medium shrink-0">
-          {formatDate(tweet.createdAt)}
-        </span>
-      </header>
-      <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
-        {tweet.content}
-      </p>
+      {/* Avatar */}
+      <button
+        onClick={handleAuthorClick}
+        className="flex-shrink-0 hover:opacity-80 transition-opacity"
+        aria-label={`View ${tweet.author.username}'s profile`}
+      >
+        <Avatar
+          src={tweet.author.profilePicture}
+          alt={tweet.author.username}
+          size="sm"
+        />
+      </button>
+
+      {/* Content */}
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Header with username and time */}
+        <div className="flex gap-1 items-center text-sm pb-2 flex-wrap">
+          <button
+            onClick={handleAuthorClick}
+            className="font-bold text-tweet-author hover:underline transition-colors"
+          >
+            {tweet.author.username}
+          </button>
+          <span className="text-tweet-meta">·</span>
+          <span className="text-tweet-meta font-medium text-xs">
+            {formatDate(tweet.createdAt)}
+          </span>
+        </div>
+
+        {/* Tweet content */}
+        <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
+          {tweet.content}
+        </p>
+      </div>
     </article>
   );
 }

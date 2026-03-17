@@ -116,5 +116,32 @@ class SecurityController extends AbstractController
             'message' => 'Déconnexion réussie'
         ], 200);
     }
+
+    /**
+     * Get current user profile
+     * GET /api/me
+     */
+    #[Route('/me', name: 'api.me', methods: ['GET'])]
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_USER')]
+    public function me(
+        #[CurrentUser] ?User $user
+    ): JsonResponse {
+        if (!$user) {
+            return $this->json([
+                'error' => 'Non authentifié'
+            ], 401);
+        }
+
+        return $this->json([
+            'id' => $user->getId(),
+            'username' => $user->getUsername(),
+            'email' => $user->getEmail(),
+            'bio' => $user->getBio(),
+            'profilePicture' => $user->getProfilePicture(),
+            'banner' => $user->getBannerPicture(),
+            'location' => $user->getLocation(),
+            'website' => $user->getWebsite(),
+        ], 200, [], ['groups' => 'default']);
+    }
 }
 
