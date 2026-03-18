@@ -55,13 +55,13 @@ export default function Profile() {
               />
             </div>
             <div className="flex-1 pt-2">
-              <h1 className="text-xl font-bold text-text-primary">{user.username}</h1>
+              <h1 className="text-xl font-bold text-tweet-author">{user.username}</h1>
               {user.bio && <p className="text-text-muted text-sm mt-1">{user.bio}</p>}
             </div>
           </div>
 
           {/* Location & Website */}
-          <div className="space-y-2 text-sm text-text-muted">
+          <div className="space-y-2 text-sm text-tweet-author">
             {user.location && (
               <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
