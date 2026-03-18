@@ -8,6 +8,7 @@ import Login from "./routes/login";
 import Feed, { loader as feedLoader } from "./routes/feed";
 import Post, { loader as postLoader } from "./routes/post";
 import Profile, { loader as profileLoader } from "./routes/profile";
+import Settings, { loader as settingsLoader } from "./routes/settings";
 import ErrorPage from "./routes/error";
 
 const router = createBrowserRouter([
@@ -46,6 +47,13 @@ const router = createBrowserRouter([
     path: "/profile/:id",
     element: <Profile />,
     loader: profileLoader,
+    errorElement: <ErrorPage />,
+    HydrateFallback: () => null,
+  },
+  {
+    path: "/settings",
+    element: <Settings />,
+    loader: settingsLoader,
     errorElement: <ErrorPage />,
     HydrateFallback: () => null,
   },
