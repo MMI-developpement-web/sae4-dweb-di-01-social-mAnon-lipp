@@ -137,8 +137,8 @@ class SecurityController extends AbstractController
             'username' => $user->getUsername(),
             'email' => $user->getEmail(),
             'bio' => $user->getBio(),
-            'profilePicture' => $user->getProfilePicture(),
-            'banner' => $user->getBannerPicture(),
+            'profilePicture' => $user->getProfilePictureUrl(),
+            'banner' => $user->getBannerPictureUrl(),
             'location' => $user->getLocation(),
             'website' => $user->getWebsite(),
         ], 200, [], ['groups' => 'default']);

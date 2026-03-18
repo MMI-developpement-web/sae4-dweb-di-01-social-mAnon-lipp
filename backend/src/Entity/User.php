@@ -264,6 +264,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    public function getProfilePictureUrl(): ?string
+    {
+        return $this->profilePicture ? '/uploads/' . $this->profilePicture : null;
+    }
+
+    public function getBannerPictureUrl(): ?string
+    {
+        return $this->bannerPicture ? '/uploads/' . $this->bannerPicture : null;
+    }
+
     public function getLocation(): ?string
     {
         return $this->location;

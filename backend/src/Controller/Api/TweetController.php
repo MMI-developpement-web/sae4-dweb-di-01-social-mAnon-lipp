@@ -41,14 +41,28 @@ class TweetController extends AbstractController
         $tweets = $this->tweetRepository->findLatest($perPage, $offset);
         $total = $this->tweetRepository->count([]);
 
+        // Format tweets with author profile pictures
+        $formattedTweets = array_map(function (Tweet $tweet) {
+            return [
+                'id' => $tweet->getId(),
+                'content' => $tweet->getContent(),
+                'createdAt' => $tweet->getCreatedAt(),
+                'author' => [
+                    'id' => $tweet->getAuthor()->getId(),
+                    'username' => $tweet->getAuthor()->getUsername(),
+                    'profilePicture' => $tweet->getAuthor()->getProfilePictureUrl(),
+                ],
+            ];
+        }, $tweets);
+
         return $this->json([
-            'tweets' => $tweets,
+            'tweets' => $formattedTweets,
             'pagination' => [
                 'current_page' => $page,
                 'per_page' => $perPage,
                 'total_items' => $total,
             ],
-        ], 200, [], ['groups' => 'default']);
+        ], 200);
     }
 
     /**
@@ -114,8 +128,8 @@ class TweetController extends AbstractController
                 'username' => $user->getUsername(),
                 'email' => $user->getEmail(),
                 'bio' => $user->getBio(),
-                'profilePicture' => $user->getProfilePicture(),
-                'banner' => $user->getBannerPicture(),
+                'profilePicture' => $user->getProfilePictureUrl(),
+                'banner' => $user->getBannerPictureUrl(),
                 'location' => $user->getLocation(),
                 'website' => $user->getWebsite(),
             ],
