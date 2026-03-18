@@ -152,3 +152,14 @@ export async function fetchCurrentUser(): Promise<User> {
 export async function fetchUserProfile(userId: number, page = 1, perPage = 20): Promise<ProfileResponse> {
   return apiFetch<ProfileResponse>(`/users/${userId}?page=${page}&per_page=${perPage}`);
 }
+
+/**
+ * Delete a tweet
+ * DELETE /api/tweets/:id
+ */
+export async function deleteTweet(tweetId: number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/tweets/${tweetId}`, {
+    method: "DELETE",
+  });
+}
+

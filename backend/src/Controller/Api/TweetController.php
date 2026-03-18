@@ -96,6 +96,30 @@ class TweetController extends AbstractController
     }
 
     /**
+     * Delete a tweet (owner only)
+     * DELETE /api/tweets/{id}
+     */
+    #[Route('/tweets/{id}', name: 'api.tweets.delete', methods: ['DELETE'])]
+    public function delete(int $id): JsonResponse
+    {
+        $tweet = $this->tweetRepository->find($id);
+
+        if (!$tweet) {
+            return $this->json(['error' => 'Tweet non trouvé'], 404);
+        }
+
+        // Check if the current user is the tweet author
+        if ($tweet->getAuthor()->getId() !== $this->getUser()->getId()) {
+            return $this->json(['error' => 'Vous n\'êtes pas autorisé à supprimer ce tweet'], 403);
+        }
+
+        $this->em->remove($tweet);
+        $this->em->flush();
+
+        return $this->json(['message' => 'Tweet supprimé avec succès'], 200);
+    }
+
+    /**
      * Get user profile with tweets
      * GET /api/users/{id}
      */

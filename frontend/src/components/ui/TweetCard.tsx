@@ -1,8 +1,12 @@
 import { cva, type VariantProps } from "class-variance-authority";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
+import { useAuth } from "../../contexts/AuthContext";
 import type { Tweet } from "../../lib/api";
+import { deleteTweet } from "../../lib/api";
 import Avatar from "./Avatar";
+import ConfirmDeleteModal from "../ConfirmDeleteModal";
 
 const tweetCardVariants = cva(
   "flex gap-3 items-start rounded-lg p-4 w-full",
@@ -19,6 +23,7 @@ const tweetCardVariants = cva(
 interface TweetCardProps extends VariantProps<typeof tweetCardVariants> {
   tweet: Tweet;
   className?: string;
+  onDelete?: (tweetId: number) => void;
 }
 
 function formatDate(isoDate: string): string {
@@ -37,49 +42,109 @@ function formatDate(isoDate: string): string {
   });
 }
 
-export default function TweetCard({ tweet, variant, className }: TweetCardProps) {
+export default function TweetCard({ tweet, variant, className, onDelete }: TweetCardProps) {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isOwner = currentUser && currentUser.id === tweet.author.id;
 
   const handleAuthorClick = () => {
     navigate(`/profile/${tweet.author.id}`);
   };
 
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteTweet(tweet.id);
+      setShowDeleteModal(false);
+      onDelete?.(tweet.id);
+    } catch (error) {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <article className={cn(tweetCardVariants({ variant }), className)}>
-      {/* Avatar */}
-      <button
-        onClick={handleAuthorClick}
-        className="flex-shrink-0 hover:opacity-80 transition-opacity"
-        aria-label={`View ${tweet.author.username}'s profile`}
-      >
-        <Avatar
-          src={tweet.author.profilePicture}
-          alt={tweet.author.username}
-          size="sm"
-        />
-      </button>
+    <>
+      <article className={cn(tweetCardVariants({ variant }), className)}>
+        {/* Avatar */}
+        <button
+          onClick={handleAuthorClick}
+          className="flex-shrink-0 hover:opacity-80 transition-opacity"
+          aria-label={`View ${tweet.author.username}'s profile`}
+        >
+          <Avatar
+            src={tweet.author.profilePicture}
+            alt={tweet.author.username}
+            size="sm"
+          />
+        </button>
 
-      {/* Content */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Header with username and time */}
-        <div className="flex gap-1 items-center text-sm pb-2 flex-wrap">
-          <button
-            onClick={handleAuthorClick}
-            className="font-bold text-tweet-author hover:underline transition-colors"
-          >
-            {tweet.author.username}
-          </button>
-          <span className="text-tweet-meta">·</span>
-          <span className="text-tweet-meta font-medium text-xs">
-            {formatDate(tweet.createdAt)}
-          </span>
+        {/* Content */}
+        <div className="flex flex-col flex-1 min-w-0">
+          {/* Header with username, time and delete button */}
+          <div className="flex gap-1 items-center text-sm pb-2 flex-wrap justify-between">
+            <div className="flex gap-1 items-center flex-wrap">
+              <button
+                onClick={handleAuthorClick}
+                className="font-bold text-tweet-author hover:underline transition-colors"
+              >
+                {tweet.author.username}
+              </button>
+              <span className="text-tweet-meta">·</span>
+              <span className="text-tweet-meta font-medium text-xs">
+                {formatDate(tweet.createdAt)}
+              </span>
+            </div>
+            
+            {/* Delete button (visible only if owner) */}
+            {isOwner && (
+              <button
+                onClick={handleDeleteClick}
+                className="text-red-500 hover:bg-red-50 rounded-full p-2 transition-colors flex-shrink-0"
+                aria-label="Supprimer le tweet"
+              >
+                <svg 
+                  className="w-4 h-4" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Tweet content */}
+          <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
+            {tweet.content}
+          </p>
         </div>
+      </article>
 
-        {/* Tweet content */}
-        <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
-          {tweet.content}
-        </p>
-      </div>
-    </article>
+      {/* Delete confirmation modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        title="Supprimer le tweet"
+        message="Êtes-vous sûr de vouloir supprimer ce tweet ? Cette action ne peut pas être annulée."
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+    </>
   );
 }
+
+

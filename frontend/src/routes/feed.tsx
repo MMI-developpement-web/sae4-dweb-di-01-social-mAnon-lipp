@@ -56,12 +56,21 @@ export default function Feed() {
     return () => observer.disconnect();
   }, [loadMore]);
 
+  const handleTweetDeleted = (tweetId: number) => {
+    setTweets((prev) => prev.filter((t) => t.id !== tweetId));
+    setTotalItems((prev) => Math.max(0, prev - 1));
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
       <main className="flex flex-col gap-5 px-5 py-5">
         {tweets.map((tweet) => (
-          <TweetCard key={tweet.id} tweet={tweet} />
+          <TweetCard 
+            key={tweet.id} 
+            tweet={tweet}
+            onDelete={handleTweetDeleted}
+          />
         ))}
 
         {fetcher.state === "loading" && (
@@ -76,3 +85,4 @@ export default function Feed() {
     </div>
   );
 }
+

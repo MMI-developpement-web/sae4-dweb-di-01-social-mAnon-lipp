@@ -1,4 +1,5 @@
 import { useNavigate, redirect, useLoaderData, type LoaderFunctionArgs } from "react-router-dom";
+import { useState } from "react";
 import Header from "../components/Header";
 import NavBar from "../components/NavBar";
 import TweetCard from "../components/ui/TweetCard";
@@ -18,7 +19,14 @@ export async function loader({ params }: LoaderFunctionArgs): Promise<ProfileRes
 export default function Profile() {
   const navigate = useNavigate();
   const data = useLoaderData() as ProfileResponse;
-  const { user, tweets } = data;
+  const { user, tweets: initialTweets } = data;
+  
+  // Local state for tweets to handle deletion
+  const [tweets, setTweets] = useState(initialTweets);
+  
+  const handleTweetDeleted = (tweetId: number) => {
+    setTweets((prev) => prev.filter((t) => t.id !== tweetId));
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -98,7 +106,11 @@ export default function Profile() {
           {tweets.length > 0 ? (
             <div className="flex flex-col gap-3 px-5 pb-5">
               {tweets.map((tweet) => (
-                <TweetCard key={tweet.id} tweet={tweet} />
+                <TweetCard 
+                  key={tweet.id} 
+                  tweet={tweet}
+                  onDelete={handleTweetDeleted}
+                />
               ))}
             </div>
           ) : (
@@ -112,3 +124,4 @@ export default function Profile() {
     </div>
   );
 }
+
