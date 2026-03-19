@@ -41,10 +41,13 @@ class TweetController extends AbstractController
         $perPage = min(50, max(1, (int) $request->query->get('per_page', 20)));
         $offset = ($page - 1) * $perPage;
 
-        $tweets = $this->tweetRepository->findLatest($perPage, $offset);
-        $total = $this->tweetRepository->count([]);
-
         $currentUser = $this->getUser();
+        if (!$currentUser instanceof User) {
+            return $this->json(['error' => 'Non authentifie'], 401);
+        }
+
+        $tweets = $this->tweetRepository->findFeedForUser($currentUser->getId(), $perPage, $offset);
+        $total = $this->tweetRepository->countFeedForUser($currentUser->getId());
 
         // Format tweets with author profile pictures and like info
         $formattedTweets = array_map(function (Tweet $tweet) use ($currentUser) {
@@ -127,10 +130,11 @@ class TweetController extends AbstractController
     }
 
     /**
-     * Get user profile with tweets
-     * GET /api/users/{id}
+     * Legacy endpoint kept for compatibility.
+     * Prefer /api/users/{id} in UserController and /api/users/{id}/tweets.
+     * GET /api/users/{id}/profile
      */
-    #[Route('/users/{id}', name: 'api.users.profile', methods: ['GET'])]
+    #[Route('/users/{id}/profile', name: 'api.users.profile', methods: ['GET'])]
     public function profile(int $id, Request $request): JsonResponse
     {
         $user = $this->userRepository->find($id);

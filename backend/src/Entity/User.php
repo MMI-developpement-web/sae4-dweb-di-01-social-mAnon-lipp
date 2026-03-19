@@ -75,11 +75,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Like::class, mappedBy: 'user')]
     private Collection $likes;
 
+    /**
+     * @var Collection<int, Follow>
+     */
+    #[ORM\OneToMany(targetEntity: Follow::class, mappedBy: 'follower')]
+    private Collection $follows;
+
+    /**
+     * @var Collection<int, Follow>
+     */
+    #[ORM\OneToMany(targetEntity: Follow::class, mappedBy: 'following')]
+    private Collection $followings;
+
     public function __construct()
     {
         $this->tokens = new ArrayCollection();
         $this->tweets = new ArrayCollection();
         $this->likes = new ArrayCollection();
+        $this->follows = new ArrayCollection();
+        $this->followings = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -333,5 +347,107 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         }
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, Follow>
+     */
+    public function getFollows(): Collection
+    {
+        return $this->follows;
+    }
+
+    public function addFollow(Follow $follow): static
+    {
+        if (!$this->follows->contains($follow)) {
+            $this->follows->add($follow);
+            $follow->setFollower($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFollow(Follow $follow): static
+    {
+        if ($this->follows->removeElement($follow)) {
+            // set the owning side to null (unless already changed)
+            if ($follow->getFollower() === $this) {
+                $follow->setFollower(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Follow>
+     */
+    public function getFollowings(): Collection
+    {
+        return $this->followings;
+    }
+
+    public function addFollowing(Follow $following): static
+    {
+        if (!$this->followings->contains($following)) {
+            $this->followings->add($following);
+            $following->setFollowing($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFollowing(Follow $following): static
+    {
+        if ($this->followings->removeElement($following)) {
+            // set the owning side to null (unless already changed)
+            if ($following->getFollowing() === $this) {
+                $following->setFollowing(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Check if this user is following another user
+     */
+    public function isFollowing(User $user): bool
+    {
+        foreach ($this->follows as $follow) {
+            if ($follow->getFollowing()->getId() === $user->getId()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if this user is followed by another user
+     */
+    public function isFollowedBy(User $user): bool
+    {
+        foreach ($this->followings as $follow) {
+            if ($follow->getFollower()->getId() === $user->getId()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get follower count
+     */
+    public function getFollowerCount(): int
+    {
+        return $this->followings->count();
+    }
+
+    /**
+     * Get following count
+     */
+    public function getFollowingCount(): int
+    {
+        return $this->follows->count();
     }
 }

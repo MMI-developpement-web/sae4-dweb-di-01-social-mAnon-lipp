@@ -3,6 +3,7 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("auth_token");
   const res = await fetch(`${API_BASE}${path}`, {
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -181,6 +182,66 @@ export async function likeTweet(tweetId: number): Promise<{ message: string; lik
  */
 export async function unlikeTweet(tweetId: number): Promise<{ message: string; likeCount: number }> {
   return apiFetch<{ message: string; likeCount: number }>(`/tweets/${tweetId}/like`, {
+    method: "DELETE",
+  });
+}
+
+// Follow API
+export interface UserProfile {
+  id: number;
+  email: string;
+  username: string;
+  bio?: string;
+  profilePicture?: string;
+  banner?: string;
+  location?: string;
+  website?: string;
+  followerCount: number;
+  followingCount: number;
+  isFollowing: boolean;
+}
+
+export interface UserProfileResponse {
+  user: UserProfile;
+}
+
+export interface FollowResponse {
+  message: string;
+  isFollowing: boolean;
+}
+
+/**
+ * Fetch user profile by ID
+ * GET /api/users/:id
+ */
+export async function fetchUserProfileDetails(userId: number): Promise<UserProfileResponse> {
+  return apiFetch<UserProfileResponse>(`/users/${userId}`);
+}
+
+/**
+ * Fetch user's tweets
+ * GET /api/users/:id/tweets?page=1&per_page=20
+ */
+export async function fetchUserTweets(userId: number, page = 1, perPage = 20): Promise<TweetsResponse> {
+  return apiFetch<TweetsResponse>(`/users/${userId}/tweets?page=${page}&per_page=${perPage}`);
+}
+
+/**
+ * Follow a user
+ * POST /api/users/:id/follow
+ */
+export async function followUser(userId: number): Promise<FollowResponse> {
+  return apiFetch<FollowResponse>(`/users/${userId}/follow`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Unfollow a user
+ * DELETE /api/users/:id/follow
+ */
+export async function unfollowUser(userId: number): Promise<FollowResponse> {
+  return apiFetch<FollowResponse>(`/users/${userId}/follow`, {
     method: "DELETE",
   });
 }

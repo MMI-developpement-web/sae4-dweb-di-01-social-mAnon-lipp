@@ -29,6 +29,35 @@ class TweetRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Feed tweets: current user's tweets + followed users' tweets.
+     *
+     * @return Tweet[]
+     */
+    public function findFeedForUser(int $userId, int $limit, int $offset): array
+    {
+        return $this->createQueryBuilder('t')
+            ->leftJoin('App\\Entity\\Follow', 'f', 'WITH', 'f.following = t.author AND IDENTITY(f.follower) = :userId')
+            ->andWhere('IDENTITY(t.author) = :userId OR f.id IS NOT NULL')
+            ->setParameter('userId', $userId)
+            ->orderBy('t.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->setFirstResult($offset)
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function countFeedForUser(int $userId): int
+    {
+        return (int) $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->leftJoin('App\\Entity\\Follow', 'f', 'WITH', 'f.following = t.author AND IDENTITY(f.follower) = :userId')
+            ->andWhere('IDENTITY(t.author) = :userId OR f.id IS NOT NULL')
+            ->setParameter('userId', $userId)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
 //    /**
 //     * @return Tweet[] Returns an array of Tweet objects
 //     */

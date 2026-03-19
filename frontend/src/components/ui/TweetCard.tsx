@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../contexts/AuthContext";
@@ -53,6 +53,12 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
   const [isLiking, setIsLiking] = useState(false);
 
   const isOwner = currentUser && currentUser.id === tweet.author.id;
+
+  // Sync state when tweet data changes from API
+  useEffect(() => {
+    setIsLiked(tweet.isLiked ?? false);
+    setLikeCount(tweet.likeCount ?? 0);
+  }, [tweet.id, tweet.isLiked, tweet.likeCount]);
 
   const handleAuthorClick = () => {
     navigate(`/profile/${tweet.author.id}`);
