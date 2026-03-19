@@ -6,6 +6,8 @@ use App\Entity\Tweet;
 use App\Entity\User;
 use App\Repository\TweetRepository;
 use App\Repository\UserRepository;
+use App\Repository\LikeRepository;
+use App\Entity\Like;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,6 +24,7 @@ class TweetController extends AbstractController
     public function __construct(
         private TweetRepository $tweetRepository,
         private UserRepository $userRepository,
+        private LikeRepository $likeRepository,
         private EntityManagerInterface $em,
         private ValidatorInterface $validator,
     ) {
@@ -41,8 +44,10 @@ class TweetController extends AbstractController
         $tweets = $this->tweetRepository->findLatest($perPage, $offset);
         $total = $this->tweetRepository->count([]);
 
-        // Format tweets with author profile pictures
-        $formattedTweets = array_map(function (Tweet $tweet) {
+        $currentUser = $this->getUser();
+
+        // Format tweets with author profile pictures and like info
+        $formattedTweets = array_map(function (Tweet $tweet) use ($currentUser) {
             return [
                 'id' => $tweet->getId(),
                 'content' => $tweet->getContent(),
@@ -52,6 +57,8 @@ class TweetController extends AbstractController
                     'username' => $tweet->getAuthor()->getUsername(),
                     'profilePicture' => $tweet->getAuthor()->getProfilePictureUrl(),
                 ],
+                'likeCount' => $this->likeRepository->countLikesForTweet($tweet),
+                'isLiked' => $this->likeRepository->hasUserLikedTweet($currentUser, $tweet),
             ];
         }, $tweets);
 
@@ -164,6 +171,72 @@ class TweetController extends AbstractController
                 'total_items' => $total,
             ],
         ], 200, [], ['groups' => 'default']);
+    }
+
+    /**
+     * Like a tweet
+     * POST /api/tweets/{id}/like
+     */
+    #[Route('/tweets/{id}/like', name: 'api.tweets.like', methods: ['POST'])]
+    public function like(int $id): JsonResponse
+    {
+        $tweet = $this->tweetRepository->find($id);
+
+        if (!$tweet) {
+            return $this->json(['error' => 'Tweet non trouvé'], 404);
+        }
+
+        $user = $this->getUser();
+
+        // Check if user already likes this tweet
+        if ($this->likeRepository->hasUserLikedTweet($user, $tweet)) {
+            return $this->json(['error' => 'Vous avez déjà liké ce tweet'], 409);
+        }
+
+        $like = new Like();
+        $like->setUser($user);
+        $like->setTweet($tweet);
+        $like->setCreatedAt(new \DateTimeImmutable());
+
+        $this->em->persist($like);
+        $this->em->flush();
+
+        return $this->json([
+            'message' => 'Tweet liké avec succès',
+            'likeCount' => $this->likeRepository->countLikesForTweet($tweet),
+        ], 201);
+    }
+
+    /**
+     * Unlike a tweet
+     * DELETE /api/tweets/{id}/like
+     */
+    #[Route('/tweets/{id}/like', name: 'api.tweets.unlike', methods: ['DELETE'])]
+    public function unlike(int $id): JsonResponse
+    {
+        $tweet = $this->tweetRepository->find($id);
+
+        if (!$tweet) {
+            return $this->json(['error' => 'Tweet non trouvé'], 404);
+        }
+
+        $user = $this->getUser();
+        $like = $this->likeRepository->findOneBy([
+            'user' => $user,
+            'tweet' => $tweet,
+        ]);
+
+        if (!$like) {
+            return $this->json(['error' => 'Vous n\'avez pas liké ce tweet'], 404);
+        }
+
+        $this->em->remove($like);
+        $this->em->flush();
+
+        return $this->json([
+            'message' => 'Like retiré avec succès',
+            'likeCount' => $this->likeRepository->countLikesForTweet($tweet),
+        ], 200);
     }
 }
 

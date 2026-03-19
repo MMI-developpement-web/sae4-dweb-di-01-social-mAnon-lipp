@@ -96,6 +96,8 @@ export interface Tweet {
   content: string;
   createdAt: string;
   author: TweetAuthor;
+  likeCount?: number;
+  isLiked?: boolean;
 }
 
 export interface Pagination {
@@ -159,6 +161,26 @@ export async function fetchUserProfile(userId: number, page = 1, perPage = 20): 
  */
 export async function deleteTweet(tweetId: number): Promise<{ message: string }> {
   return apiFetch<{ message: string }>(`/tweets/${tweetId}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Like a tweet
+ * POST /api/tweets/:id/like
+ */
+export async function likeTweet(tweetId: number): Promise<{ message: string; likeCount: number }> {
+  return apiFetch<{ message: string; likeCount: number }>(`/tweets/${tweetId}/like`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Unlike a tweet
+ * DELETE /api/tweets/:id/like
+ */
+export async function unlikeTweet(tweetId: number): Promise<{ message: string; likeCount: number }> {
+  return apiFetch<{ message: string; likeCount: number }>(`/tweets/${tweetId}/like`, {
     method: "DELETE",
   });
 }

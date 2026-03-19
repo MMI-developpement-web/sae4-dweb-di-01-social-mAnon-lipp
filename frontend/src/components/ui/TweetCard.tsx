@@ -4,8 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Tweet } from "../../lib/api";
-import { deleteTweet } from "../../lib/api";
+import { deleteTweet, likeTweet, unlikeTweet } from "../../lib/api";
 import Avatar from "./Avatar";
+import Heart from "./Heart";
 import ConfirmDeleteModal from "../ConfirmDeleteModal";
 
 const tweetCardVariants = cva(
@@ -47,6 +48,9 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
   const { currentUser } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLiked, setIsLiked] = useState(tweet.isLiked ?? false);
+  const [likeCount, setLikeCount] = useState(tweet.likeCount ?? 0);
+  const [isLiking, setIsLiking] = useState(false);
 
   const isOwner = currentUser && currentUser.id === tweet.author.id;
 
@@ -66,6 +70,32 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
       onDelete?.(tweet.id);
     } catch (error) {
       setIsDeleting(false);
+    }
+  };
+
+  const handleLike = async () => {
+    setIsLiking(true);
+    try {
+      const response = await likeTweet(tweet.id);
+      setIsLiked(true);
+      setLikeCount(response.likeCount);
+    } catch (error) {
+      console.error("Erreur lors du like:", error);
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleUnlike = async () => {
+    setIsLiking(true);
+    try {
+      const response = await unlikeTweet(tweet.id);
+      setIsLiked(false);
+      setLikeCount(response.likeCount);
+    } catch (error) {
+      console.error("Erreur lors du unlike:", error);
+    } finally {
+      setIsLiking(false);
     }
   };
 
@@ -131,6 +161,19 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
           <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
             {tweet.content}
           </p>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-8 pt-3 mt-2">
+            <Heart
+              isLiked={isLiked}
+              likeCount={likeCount}
+              onLike={handleLike}
+              onUnlike={handleUnlike}
+              isLoading={isLiking}
+              disabled={isLiking}
+              size="md"
+            />
+          </div>
         </div>
       </article>
 
