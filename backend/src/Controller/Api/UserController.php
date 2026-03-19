@@ -7,6 +7,7 @@ use App\Repository\LikeRepository;
 use App\Repository\UserRepository;
 use App\Repository\TweetRepository;
 use App\Service\FollowService;
+use App\Service\BlockedAccountService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,6 +24,7 @@ class UserController extends AbstractController
         private LikeRepository $likeRepository,
         private FollowService $followService,
         private EntityManagerInterface $em,
+        private BlockedAccountService $blockedAccountService,
     ) {
     }
 
@@ -37,6 +39,11 @@ class UserController extends AbstractController
         $user = $this->userRepository->find($id);
 
         if (!$user) {
+            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
+        }
+
+        // If user is blocked, return 404
+        if ($this->blockedAccountService->isUserBlocked($user)) {
             return $this->json(['error' => 'Utilisateur non trouvé'], 404);
         }
 
@@ -77,6 +84,11 @@ class UserController extends AbstractController
             return $this->json(['error' => 'Utilisateur non trouvé'], 404);
         }
 
+        // If user is blocked, return 404
+        if ($this->blockedAccountService->isUserBlocked($user)) {
+            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
+        }
+
         $page = max(1, (int) $request->query->get('page', 1));
         $perPage = min(50, max(1, (int) $request->query->get('per_page', 20)));
         $offset = ($page - 1) * $perPage;
@@ -93,18 +105,34 @@ class UserController extends AbstractController
         $currentUser = $this->getUser();
 
         $formattedTweets = array_map(function ($tweet) use ($currentUser) {
-            return [
+            // Check if author is blocked and transform content and author name
+            $content = $tweet->getContent();
+            $authorUsername = $tweet->getAuthor()->getUsername();
+            $isBlocked = $this->blockedAccountService->isUserBlocked($tweet->getAuthor());
+            
+            if ($isBlocked) {
+                $content = 'Ce compte a été bloqué pour non respect des conditions d\'utilisation';
+                $authorUsername = 'Utilisateur introuvable';
+            }
+            
+            $tweetData = [
                 'id' => $tweet->getId(),
-                'content' => $tweet->getContent(),
+                'content' => $content,
                 'createdAt' => $tweet->getCreatedAt(),
                 'author' => [
                     'id' => $tweet->getAuthor()->getId(),
-                    'username' => $tweet->getAuthor()->getUsername(),
+                    'username' => $authorUsername,
                     'profilePicture' => $tweet->getAuthor()->getProfilePictureUrl(),
                 ],
-                'likeCount' => $this->likeRepository->countLikesForTweet($tweet),
-                'isLiked' => $this->likeRepository->hasUserLikedTweet($currentUser, $tweet),
             ];
+            
+            // Don't add like info for blocked accounts
+            if (!$isBlocked) {
+                $tweetData['likeCount'] = $this->likeRepository->countLikesForTweet($tweet);
+                $tweetData['isLiked'] = $this->likeRepository->hasUserLikedTweet($currentUser, $tweet);
+            }
+            
+            return $tweetData;
         }, $tweets);
 
         return $this->json([

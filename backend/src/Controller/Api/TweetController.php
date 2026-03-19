@@ -8,6 +8,7 @@ use App\Repository\TweetRepository;
 use App\Repository\UserRepository;
 use App\Repository\LikeRepository;
 use App\Entity\Like;
+use App\Service\BlockedAccountService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,6 +28,7 @@ class TweetController extends AbstractController
         private LikeRepository $likeRepository,
         private EntityManagerInterface $em,
         private ValidatorInterface $validator,
+        private BlockedAccountService $blockedAccountService,
     ) {
     }
 
@@ -51,18 +53,34 @@ class TweetController extends AbstractController
 
         // Format tweets with author profile pictures and like info
         $formattedTweets = array_map(function (Tweet $tweet) use ($currentUser) {
-            return [
+            // Check if author is blocked and transform content and author name
+            $content = $tweet->getContent();
+            $authorUsername = $tweet->getAuthor()->getUsername();
+            $isBlocked = $this->blockedAccountService->isUserBlocked($tweet->getAuthor());
+            
+            if ($isBlocked) {
+                $content = 'Ce compte a été bloqué pour non respect des conditions d\'utilisation';
+                $authorUsername = 'Utilisateur introuvable';
+            }
+            
+            $tweetData = [
                 'id' => $tweet->getId(),
-                'content' => $tweet->getContent(),
+                'content' => $content,
                 'createdAt' => $tweet->getCreatedAt(),
                 'author' => [
                     'id' => $tweet->getAuthor()->getId(),
-                    'username' => $tweet->getAuthor()->getUsername(),
+                    'username' => $authorUsername,
                     'profilePicture' => $tweet->getAuthor()->getProfilePictureUrl(),
                 ],
-                'likeCount' => $this->likeRepository->countLikesForTweet($tweet),
-                'isLiked' => $this->likeRepository->hasUserLikedTweet($currentUser, $tweet),
             ];
+            
+            // Don't add like info for blocked accounts
+            if (!$isBlocked) {
+                $tweetData['likeCount'] = $this->likeRepository->countLikesForTweet($tweet);
+                $tweetData['isLiked'] = $this->likeRepository->hasUserLikedTweet($currentUser, $tweet);
+            }
+            
+            return $tweetData;
         }, $tweets);
 
         return $this->json([
@@ -143,6 +161,11 @@ class TweetController extends AbstractController
             return $this->json(['error' => 'Utilisateur non trouvé'], 404);
         }
 
+        // If user is blocked, return 404
+        if ($this->blockedAccountService->isUserBlocked($user)) {
+            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
+        }
+
         $page = max(1, (int) $request->query->get('page', 1));
         $perPage = min(50, max(1, (int) $request->query->get('per_page', 20)));
         $offset = ($page - 1) * $perPage;
@@ -157,6 +180,30 @@ class TweetController extends AbstractController
 
         $total = $this->tweetRepository->count(['author' => $user]);
 
+        // Format tweets and apply blocked account transformation if needed
+        $formattedTweets = array_map(function ($tweet) {
+            $content = $tweet->getContent();
+            $authorUsername = $tweet->getAuthor()->getUsername();
+            $likeCount = $this->likeRepository->countLikesForTweet($tweet);
+            $isBlocked = $this->blockedAccountService->isUserBlocked($tweet->getAuthor());
+            
+            if ($isBlocked) {
+                $content = 'Ce compte a été bloqué pour non respect des conditions d\'utilisation';
+                $authorUsername = 'Utilisateur introuvable';
+                $likeCount = 0;
+            }
+            
+            return [
+                'id' => $tweet->getId(),
+                'content' => $content,
+                'createdAt' => $tweet->getCreatedAt(),
+                'author' => [
+                    'username' => $authorUsername,
+                ],
+                'likeCount' => $likeCount,
+            ];
+        }, $tweets);
+
         return $this->json([
             'user' => [
                 'id' => $user->getId(),
@@ -168,7 +215,7 @@ class TweetController extends AbstractController
                 'location' => $user->getLocation(),
                 'website' => $user->getWebsite(),
             ],
-            'tweets' => $tweets,
+            'tweets' => $formattedTweets,
             'pagination' => [
                 'current_page' => $page,
                 'per_page' => $perPage,

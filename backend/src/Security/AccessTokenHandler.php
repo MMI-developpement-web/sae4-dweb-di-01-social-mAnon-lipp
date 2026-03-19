@@ -27,7 +27,13 @@ class AccessTokenHandler implements AccessTokenHandlerInterface
             throw new BadCredentialsException('Invalid or expired token');
         }
         
+        // Check if user is blocked
+        $user = $token->getUser();
+        if ($user->isBlocked()) {
+            throw new BadCredentialsException('This account has been blocked.');
+        }
+        
         // Return UserBadge with the user's email (identifier)
-        return new UserBadge($token->getUser()->getUserIdentifier());
+        return new UserBadge($user->getUserIdentifier());
     }
 }

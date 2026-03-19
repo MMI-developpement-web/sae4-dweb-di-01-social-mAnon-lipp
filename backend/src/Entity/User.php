@@ -87,6 +87,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Follow::class, mappedBy: 'following')]
     private Collection $followings;
 
+    #[ORM\Column(nullable: false)]
+    private bool $isBlocked = false;
+
     public function __construct()
     {
         $this->tokens = new ArrayCollection();
@@ -94,6 +97,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->likes = new ArrayCollection();
         $this->follows = new ArrayCollection();
         $this->followings = new ArrayCollection();
+        $this->isBlocked = false;
     }
 
     public function getId(): ?int
@@ -449,5 +453,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getFollowingCount(): int
     {
         return $this->follows->count();
+    }
+
+    public function isBlocked(): bool
+    {
+        return $this->isBlocked;
+    }
+
+    public function setIsBlocked(bool $isBlocked): static
+    {
+        $this->isBlocked = $isBlocked;
+
+        return $this;
     }
 }

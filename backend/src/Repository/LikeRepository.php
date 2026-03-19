@@ -30,20 +30,34 @@ class LikeRepository extends ServiceEntityRepository
     }
 
     /**
-     * Get like count for a tweet
+     * Get like count for a tweet (excluding likes from blocked users)
      */
     public function countLikesForTweet(Tweet $tweet): int
     {
-        return $this->count(['tweet' => $tweet]);
+        return (int) $this->createQueryBuilder('l')
+            ->select('COUNT(l.id)')
+            ->innerJoin('l.user', 'u')
+            ->andWhere('l.tweet = :tweet')
+            ->andWhere('u.isBlocked = false')
+            ->setParameter('tweet', $tweet)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /**
-     * Get all likes for a tweet
+     * Get all likes for a tweet (excluding likes from blocked users)
      *
      * @return Like[]
      */
     public function findLikesForTweet(Tweet $tweet): array
     {
-        return $this->findBy(['tweet' => $tweet], ['createdAt' => 'DESC']);
+        return $this->createQueryBuilder('l')
+            ->innerJoin('l.user', 'u')
+            ->andWhere('l.tweet = :tweet')
+            ->andWhere('u.isBlocked = false')
+            ->setParameter('tweet', $tweet)
+            ->orderBy('l.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 }
