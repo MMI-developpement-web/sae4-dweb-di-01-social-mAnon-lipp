@@ -2,16 +2,13 @@
 
 namespace App\Service;
 
-use App\Entity\Follow;
 use App\Entity\User;
-use App\Repository\FollowRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 class FollowService
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private FollowRepository $followRepository
     ) {
     }
 
@@ -30,11 +27,10 @@ class FollowService
             throw new \RuntimeException('Vous suivez déjà cet utilisateur');
         }
 
-        $follow = new Follow();
-        $follow->setFollower($follower);
-        $follow->setFollowing($following);
+        $follower->addFollowingUser($following);
+        $following->addFollowersUser($follower);
 
-        $this->em->persist($follow);
+        $this->em->persist($follower);
         $this->em->flush();
     }
 
@@ -43,13 +39,10 @@ class FollowService
      */
     public function unfollow(User $follower, User $following): void
     {
-        $follow = $this->followRepository->findOneBy([
-            'follower' => $follower,
-            'following' => $following,
-        ]);
-
-        if ($follow) {
-            $this->em->remove($follow);
+        if ($this->isFollowing($follower, $following)) {
+            $follower->removeFollowingUser($following);
+            $following->removeFollowersUser($follower);
+            $this->em->persist($follower);
             $this->em->flush();
         }
     }
@@ -59,14 +52,7 @@ class FollowService
      */
     public function isFollowing(User $follower, User $following): bool
     {
-        $followerId = $follower->getId();
-        $followingId = $following->getId();
-
-        if ($followerId === null || $followingId === null) {
-            return false;
-        }
-
-        return $this->followRepository->existsFollow($followerId, $followingId);
+        return $follower->getFollowingUsers()->contains($following);
     }
 
     /**
@@ -74,7 +60,7 @@ class FollowService
      */
     public function getFollowerCount(User $user): int
     {
-        return $this->followRepository->count(['following' => $user]);
+        return $user->getFollowersUsers()->count();
     }
 
     /**
@@ -82,6 +68,6 @@ class FollowService
      */
     public function getFollowingCount(User $user): int
     {
-        return $this->followRepository->count(['follower' => $user]);
+        return $user->getFollowingUsers()->count();
     }
 }

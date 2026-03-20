@@ -13,7 +13,7 @@ export default function Post() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <main className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
       <div className="px-5 pt-12">
         {/* Header row */}
@@ -36,6 +36,6 @@ export default function Post() {
         {/* Form */}
         <PostForm />
       </div>
-    </div>
+    </main>
   );
 }

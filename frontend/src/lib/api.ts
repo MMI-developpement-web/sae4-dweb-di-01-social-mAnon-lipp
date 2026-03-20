@@ -123,12 +123,6 @@ export interface TweetsResponse {
   pagination: Pagination;
 }
 
-export interface ProfileResponse {
-  user: User;
-  tweets: Tweet[];
-  pagination: Pagination;
-}
-
 export async function fetchTweets(page: number, perPage = 20): Promise<TweetsResponse> {
   return apiFetch<TweetsResponse>(`/tweets?page=${page}&per_page=${perPage}`);
 }
@@ -146,14 +140,6 @@ export async function postTweet(content: string): Promise<Tweet> {
  */
 export async function fetchCurrentUser(): Promise<User> {
   return apiFetch<User>("/me");
-}
-
-/**
- * Fetch user profile with tweets
- * GET /api/users/:id
- */
-export async function fetchUserProfile(userId: number, page = 1, perPage = 20): Promise<ProfileResponse> {
-  return apiFetch<ProfileResponse>(`/users/${userId}?page=${page}&per_page=${perPage}`);
 }
 
 /**
@@ -214,7 +200,7 @@ export interface FollowResponse {
  * Fetch user profile by ID
  * GET /api/users/:id
  */
-export async function fetchUserProfileDetails(userId: number): Promise<UserProfileResponse> {
+export async function fetchUserProfile(userId: number): Promise<UserProfileResponse> {
   return apiFetch<UserProfileResponse>(`/users/${userId}`);
 }
 

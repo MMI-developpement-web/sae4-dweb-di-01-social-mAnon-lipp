@@ -1,6 +1,5 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "../lib/utils";
-import { logout } from "../lib/api";
 
 type NavBarProps = {
   mode?: "mobile" | "desktop";
@@ -18,9 +17,7 @@ function HomeIcon({ className }: { className?: string }) {
 
 export default function NavBar({ mode = "mobile" }: NavBarProps) {
 
-  const handleLogout = async () => {
-    await logout();
-  };
+  
 
   if (mode === "desktop") {
     const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -37,9 +34,6 @@ export default function NavBar({ mode = "mobile" }: NavBarProps) {
         <NavLink to="/post" className={desktopLinkClass}>
           Poster
         </NavLink>
-        <button onClick={handleLogout} className={desktopLinkClass({ isActive: false })}>
-          Déconnexion
-        </button>
       </nav>
     );
   }

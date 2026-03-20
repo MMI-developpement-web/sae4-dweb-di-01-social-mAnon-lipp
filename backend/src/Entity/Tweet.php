@@ -31,14 +31,14 @@ class Tweet
     private ?User $author = null;
 
     /**
-     * @var Collection<int, Like>
+     * @var Collection<int, User>
      */
-    #[ORM\OneToMany(targetEntity: Like::class, mappedBy: 'tweet')]
-    private Collection $likes;
+    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'likedTweets')]
+    private Collection $likedByUsers;
 
     public function __construct()
     {
-        $this->likes = new ArrayCollection();
+        $this->likedByUsers = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -83,30 +83,27 @@ class Tweet
     }
 
     /**
-     * @return Collection<int, Like>
+     * @return Collection<int, User>
      */
-    public function getLikes(): Collection
+    public function getLikedByUsers(): Collection
     {
-        return $this->likes;
+        return $this->likedByUsers;
     }
 
-    public function addLike(Like $like): static
+    public function addLikedByUser(User $likedByUser): static
     {
-        if (!$this->likes->contains($like)) {
-            $this->likes->add($like);
-            $like->setTweet($this);
+        if (!$this->likedByUsers->contains($likedByUser)) {
+            $this->likedByUsers->add($likedByUser);
+            $likedByUser->addLikedTweet($this);
         }
 
         return $this;
     }
 
-    public function removeLike(Like $like): static
+    public function removeLikedByUser(User $likedByUser): static
     {
-        if ($this->likes->removeElement($like)) {
-            // set the owning side to null (unless already changed)
-            if ($like->getTweet() === $this) {
-                $like->setTweet(null);
-            }
+        if ($this->likedByUsers->removeElement($likedByUser)) {
+            $likedByUser->removeLikedTweet($this);
         }
 
         return $this;

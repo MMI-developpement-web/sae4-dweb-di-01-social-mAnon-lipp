@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Dto\Payload\RegisterPayload;
 use App\Entity\User;
+use App\Resolver\MediaUrlResolver;
 use App\Service\TokenManager;
 use App\Service\UserRegistrationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,9 +17,12 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 #[Route('/api', format: 'json')]
 class SecurityController extends AbstractController
 {
+    use ApiJsonResponderTrait;
+
     public function __construct(
         private UserRegistrationService $registrationService,
-        private TokenManager $tokenManager
+        private TokenManager $tokenManager,
+        private MediaUrlResolver $mediaUrlResolver,
     ) {
     }
 
@@ -34,7 +38,7 @@ class SecurityController extends AbstractController
             // Use service to handle business logic
             $user = $this->registrationService->register($payload);
         } catch (\RuntimeException $e) {
-            return $this->json(['error' => $e->getMessage()], 409);
+            return $this->errorJson($e->getMessage(), 409);
         }
 
         // Generate access token
@@ -64,9 +68,7 @@ class SecurityController extends AbstractController
     ): JsonResponse {
         // If we reach here without a user, authentication failed
         if (!$user) {
-            return $this->json([
-                'error' => 'Email ou mot de passe incorrect'
-            ], 401);
+            return $this->errorJson('Email ou mot de passe incorrect', 401);
         }
 
         // Generate access token for the authenticated user
@@ -94,23 +96,20 @@ class SecurityController extends AbstractController
     ): JsonResponse {
         // If no user is authenticated, return error
         if (!$user) {
-            return $this->json([
-                'error' => 'Non authentifié'
-            ], 401);
+            return $this->errorJson('Non authentifié', 401);
         }
 
-        // Extract the token from the Authorization header
-        $authHeader = $request->headers->get('Authorization');
-        if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
-            return $this->json([
-                'error' => 'Token invalide'
-            ], 401);
+        $rawToken = $this->extractBearerToken($request->headers->get('Authorization'));
+        if ($rawToken === null) {
+            return $this->errorJson('Token invalide', 401);
         }
 
-        // The token will be automatically invalidated on the client side
-        // by removing it from localStorage. For security, you could also
-        // invalidate it on the server by revoking it from the database.
-        // For now, we just confirm the logout was successful.
+        $token = $this->tokenManager->findValidToken($rawToken);
+        if ($token === null) {
+            return $this->errorJson('Token invalide', 401);
+        }
+
+        $this->tokenManager->revokeToken($token);
 
         return $this->json([
             'message' => 'Déconnexion réussie'
@@ -127,9 +126,7 @@ class SecurityController extends AbstractController
         #[CurrentUser] ?User $user
     ): JsonResponse {
         if (!$user) {
-            return $this->json([
-                'error' => 'Non authentifié'
-            ], 401);
+            return $this->errorJson('Non authentifié', 401);
         }
 
         return $this->json([
@@ -137,11 +134,22 @@ class SecurityController extends AbstractController
             'username' => $user->getUsername(),
             'email' => $user->getEmail(),
             'bio' => $user->getBio(),
-            'profilePicture' => $user->getProfilePictureUrl(),
-            'banner' => $user->getBannerPictureUrl(),
+            'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($user->getProfilePicture()),
+            'banner' => $this->mediaUrlResolver->resolveUploadPath($user->getBannerPicture()),
             'location' => $user->getLocation(),
             'website' => $user->getWebsite(),
         ], 200, [], ['groups' => 'default']);
+    }
+
+    private function extractBearerToken(?string $authHeader): ?string
+    {
+        if ($authHeader === null || !str_starts_with($authHeader, 'Bearer ')) {
+            return null;
+        }
+
+        $token = trim(substr($authHeader, 7));
+
+        return $token !== '' ? $token : null;
     }
 }
 

@@ -37,8 +37,9 @@ class TweetRepository extends ServiceEntityRepository
     public function findFeedForUser(int $userId, int $limit, int $offset): array
     {
         return $this->createQueryBuilder('t')
-            ->leftJoin('App\\Entity\\Follow', 'f', 'WITH', 'f.following = t.author AND IDENTITY(f.follower) = :userId')
-            ->andWhere('IDENTITY(t.author) = :userId OR f.id IS NOT NULL')
+            ->leftJoin('t.author', 'author')
+            ->leftJoin('author.followersUsers', 'follower')
+            ->andWhere('IDENTITY(t.author) = :userId OR follower.id = :userId')
             ->setParameter('userId', $userId)
             ->orderBy('t.createdAt', 'DESC')
             ->setMaxResults($limit)
@@ -50,36 +51,12 @@ class TweetRepository extends ServiceEntityRepository
     public function countFeedForUser(int $userId): int
     {
         return (int) $this->createQueryBuilder('t')
-            ->select('COUNT(t.id)')
-            ->leftJoin('App\\Entity\\Follow', 'f', 'WITH', 'f.following = t.author AND IDENTITY(f.follower) = :userId')
-            ->andWhere('IDENTITY(t.author) = :userId OR f.id IS NOT NULL')
+            ->select('COUNT(DISTINCT t.id)')
+            ->leftJoin('t.author', 'author')
+            ->leftJoin('author.followersUsers', 'follower')
+            ->andWhere('IDENTITY(t.author) = :userId OR follower.id = :userId')
             ->setParameter('userId', $userId)
             ->getQuery()
             ->getSingleScalarResult();
     }
-
-//    /**
-//     * @return Tweet[] Returns an array of Tweet objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('t')
-//            ->andWhere('t.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('t.id', 'ASC')
-//            ->setMaxResults(10)
-//            ->getQuery()
-//            ->getResult()
-//        ;
-//    }
-
-//    public function findOneBySomeField($value): ?Tweet
-//    {
-//        return $this->createQueryBuilder('t')
-//            ->andWhere('t.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->getQuery()
-//            ->getOneOrNullResult()
-//        ;
-//    }
 }

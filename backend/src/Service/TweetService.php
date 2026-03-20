@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Service;
+
+use App\Entity\Tweet;
+use App\Entity\User;
+use App\Repository\TweetRepository;
+use Doctrine\ORM\EntityManagerInterface;
+
+class TweetService
+{
+    public function __construct(
+        private EntityManagerInterface $em,
+        private TweetRepository $tweetRepository
+    ) {
+    }
+
+    public function createTweet(User $author, string $content): Tweet
+    {
+        $tweet = new Tweet();
+        $tweet->setContent($content);
+        $tweet->setCreatedAt(new \DateTimeImmutable());
+        $tweet->setAuthor($author);
+
+        $this->em->persist($tweet);
+        $this->em->flush();
+
+        return $tweet;
+    }
+
+    /**
+     * Delete tweet if user is the author, otherwise throw
+     */
+    public function deleteTweet(User $user, Tweet $tweet): void
+    {
+        if ($tweet->getAuthor()->getId() !== $user->getId()) {
+            throw new \RuntimeException('Not authorized');
+        }
+
+        $this->em->remove($tweet);
+        $this->em->flush();
+    }
+}

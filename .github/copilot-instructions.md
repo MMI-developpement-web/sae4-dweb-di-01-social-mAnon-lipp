@@ -56,6 +56,25 @@ src/
 - Use Serializer groups (`#[Groups(['default'])]`) to control JSON output fields
 - Implement pagination with `?page=N&per_page=N` query parameters
 
+// Controller best-practices
+- Don't instantiating domain or entity objects with `new` inside controllers. Put business logic and object creation in services under `src/Service/` and inject those services into controllers (constructor injection / autowiring). Controllers should orchestrate services and return responses, not contain persistence or business rules.
+
+- Always inject the current user with the `#[CurrentUser]` attribute instead of calling `$this->getUser()` in controller methods. This makes method dependencies explicit and simplifies testing.
+
+```php
+// ✅ Prefer this
+public function create(#[MapRequestPayload] TweetPayload $payload, #[CurrentUser] User $user)
+{
+  $tweet = $this->tweetService->createTweet($user, trim($payload->content));
+  return $this->json($tweet, 201, [], ['groups' => 'default']);
+}
+
+// ❌ Avoid this inside controllers
+$tweet = new Tweet();
+$tweet->setAuthor($this->getUser());
+// persistence + business logic here
+```
+
 ```php
 // ✅ Correct pattern
 #[Route('/api/posts', name: 'posts.all', methods: ['GET'], format: 'json')]

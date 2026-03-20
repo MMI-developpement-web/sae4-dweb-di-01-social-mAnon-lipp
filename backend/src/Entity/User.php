@@ -69,35 +69,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $website = null;
 
-    /**
-     * @var Collection<int, Like>
-     */
-    #[ORM\OneToMany(targetEntity: Like::class, mappedBy: 'user')]
-    private Collection $likes;
-
-    /**
-     * @var Collection<int, Follow>
-     */
-    #[ORM\OneToMany(targetEntity: Follow::class, mappedBy: 'follower')]
-    private Collection $follows;
-
-    /**
-     * @var Collection<int, Follow>
-     */
-    #[ORM\OneToMany(targetEntity: Follow::class, mappedBy: 'following')]
-    private Collection $followings;
-
     #[ORM\Column(nullable: false)]
     private bool $isBlocked = false;
+
+    /**
+     * @var Collection<int, self>
+     */
+    #[ORM\ManyToMany(targetEntity: self::class, inversedBy: 'followersUsers')]
+    private Collection $followingUsers;
+
+    /**
+     * @var Collection<int, self>
+     */
+    #[ORM\ManyToMany(targetEntity: self::class, mappedBy: 'followingUsers')]
+    private Collection $followersUsers;
+
+    /**
+     * @var Collection<int, Tweet>
+     */
+    #[ORM\ManyToMany(targetEntity: Tweet::class, inversedBy: 'likedByUsers')]
+    private Collection $likedTweets;
 
     public function __construct()
     {
         $this->tokens = new ArrayCollection();
         $this->tweets = new ArrayCollection();
-        $this->likes = new ArrayCollection();
-        $this->follows = new ArrayCollection();
-        $this->followings = new ArrayCollection();
         $this->isBlocked = false;
+        $this->followingUsers = new ArrayCollection();
+        $this->followersUsers = new ArrayCollection();
+        $this->likedTweets = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -323,138 +323,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /**
-     * @return Collection<int, Like>
-     */
-    public function getLikes(): Collection
-    {
-        return $this->likes;
-    }
-
-    public function addLike(Like $like): static
-    {
-        if (!$this->likes->contains($like)) {
-            $this->likes->add($like);
-            $like->setUser($this);
-        }
-
-        return $this;
-    }
-
-    public function removeLike(Like $like): static
-    {
-        if ($this->likes->removeElement($like)) {
-            // set the owning side to null (unless already changed)
-            if ($like->getUser() === $this) {
-                $like->setUser(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, Follow>
-     */
-    public function getFollows(): Collection
-    {
-        return $this->follows;
-    }
-
-    public function addFollow(Follow $follow): static
-    {
-        if (!$this->follows->contains($follow)) {
-            $this->follows->add($follow);
-            $follow->setFollower($this);
-        }
-
-        return $this;
-    }
-
-    public function removeFollow(Follow $follow): static
-    {
-        if ($this->follows->removeElement($follow)) {
-            // set the owning side to null (unless already changed)
-            if ($follow->getFollower() === $this) {
-                $follow->setFollower(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, Follow>
-     */
-    public function getFollowings(): Collection
-    {
-        return $this->followings;
-    }
-
-    public function addFollowing(Follow $following): static
-    {
-        if (!$this->followings->contains($following)) {
-            $this->followings->add($following);
-            $following->setFollowing($this);
-        }
-
-        return $this;
-    }
-
-    public function removeFollowing(Follow $following): static
-    {
-        if ($this->followings->removeElement($following)) {
-            // set the owning side to null (unless already changed)
-            if ($following->getFollowing() === $this) {
-                $following->setFollowing(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * Check if this user is following another user
-     */
-    public function isFollowing(User $user): bool
-    {
-        foreach ($this->follows as $follow) {
-            if ($follow->getFollowing()->getId() === $user->getId()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Check if this user is followed by another user
-     */
-    public function isFollowedBy(User $user): bool
-    {
-        foreach ($this->followings as $follow) {
-            if ($follow->getFollower()->getId() === $user->getId()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Get follower count
-     */
-    public function getFollowerCount(): int
-    {
-        return $this->followings->count();
-    }
-
-    /**
-     * Get following count
-     */
-    public function getFollowingCount(): int
-    {
-        return $this->follows->count();
-    }
-
     public function isBlocked(): bool
     {
         return $this->isBlocked;
@@ -463,6 +331,81 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setIsBlocked(bool $isBlocked): static
     {
         $this->isBlocked = $isBlocked;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    public function getFollowingUsers(): Collection
+    {
+        return $this->followingUsers;
+    }
+
+    public function addFollowingUser(self $followingUser): static
+    {
+        if (!$this->followingUsers->contains($followingUser)) {
+            $this->followingUsers->add($followingUser);
+        }
+
+        return $this;
+    }
+
+    public function removeFollowingUser(self $followingUser): static
+    {
+        $this->followingUsers->removeElement($followingUser);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    public function getFollowersUsers(): Collection
+    {
+        return $this->followersUsers;
+    }
+
+    public function addFollowersUser(self $followersUser): static
+    {
+        if (!$this->followersUsers->contains($followersUser)) {
+            $this->followersUsers->add($followersUser);
+            $followersUser->addFollowingUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFollowersUser(self $followersUser): static
+    {
+        if ($this->followersUsers->removeElement($followersUser)) {
+            $followersUser->removeFollowingUser($this);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Tweet>
+     */
+    public function getLikedTweets(): Collection
+    {
+        return $this->likedTweets;
+    }
+
+    public function addLikedTweet(Tweet $likedTweet): static
+    {
+        if (!$this->likedTweets->contains($likedTweet)) {
+            $this->likedTweets->add($likedTweet);
+        }
+
+        return $this;
+    }
+
+    public function removeLikedTweet(Tweet $likedTweet): static
+    {
+        $this->likedTweets->removeElement($likedTweet);
 
         return $this;
     }

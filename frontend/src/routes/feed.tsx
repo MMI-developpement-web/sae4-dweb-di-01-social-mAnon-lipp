@@ -5,6 +5,7 @@ import NavBar from "../components/NavBar";
 import TweetCard from "../components/ui/TweetCard";
 import Button from "../components/ui/Button";
 import { fetchTweets, type TweetsResponse } from "../lib/api";
+import { useAutoRefresh } from "../hooks/useAutoRefresh";
 
 const PER_PAGE = 20;
 
@@ -22,45 +23,20 @@ export default function Feed() {
   const [totalItems, setTotalItems] = useState(
     initialData.pagination.total_items
   );
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetcher = useFetcher<TweetsResponse>();
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const autoRefreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const hasMore = tweets.length < totalItems;
 
-  const refreshFeed = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const newData = await fetchTweets(1, PER_PAGE);
-      setTweets(newData.tweets);
-      setCurrentPage(1);
-      setTotalItems(newData.pagination.total_items);
-    } catch (error) {
-      console.error("Failed to refresh feed:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
+  const fetchFeedData = useCallback(async () => {
+    const newData = await fetchTweets(1, PER_PAGE);
+    setTweets(newData.tweets);
+    setCurrentPage(1);
+    setTotalItems(newData.pagination.total_items);
   }, []);
 
-  // Auto-refresh logic
-  useEffect(() => {
-    const autoRefreshEnabled = localStorage.getItem("auto_refresh_enabled") === "true";
-    const autoRefreshInterval = parseInt(localStorage.getItem("auto_refresh_interval") || "60", 10);
-
-    if (autoRefreshEnabled && autoRefreshInterval > 0) {
-      autoRefreshIntervalRef.current = setInterval(() => {
-        refreshFeed();
-      }, autoRefreshInterval * 1000);
-    }
-
-    return () => {
-      if (autoRefreshIntervalRef.current) {
-        clearInterval(autoRefreshIntervalRef.current);
-      }
-    };
-  }, [refreshFeed]);
+  const { isRefreshing, refreshFeed } = useAutoRefresh(fetchFeedData);
 
   useEffect(() => {
     if (fetcher.data && fetcher.state === "idle") {

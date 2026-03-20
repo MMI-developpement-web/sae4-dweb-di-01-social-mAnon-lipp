@@ -7,7 +7,7 @@ import TweetCard from "../components/ui/TweetCard";
 import Banner from "../components/ui/Banner";
 import Button from "../components/ui/Button";
 import {
-  fetchUserProfileDetails,
+  fetchUserProfile,
   fetchUserTweets,
   fetchCurrentUser,
   type UserProfile,
@@ -29,7 +29,7 @@ export async function loader({ params }: LoaderFunctionArgs): Promise<LoaderData
   try {
     const [currentUserRes, profileRes, tweetsRes] = await Promise.all([
       fetchCurrentUser(),
-      fetchUserProfileDetails(userId),
+      fetchUserProfile(userId),
       fetchUserTweets(userId, 1, 20),
     ]);
 
@@ -65,7 +65,7 @@ export default function Profile() {
 
   const handleFollowChange = async () => {
     try {
-      const updatedProfile = await fetchUserProfileDetails(profile.id);
+      const updatedProfile = await fetchUserProfile(profile.id);
       setProfile(updatedProfile.user);
     } catch (error) {
       console.error("Error refreshing profile:", error);

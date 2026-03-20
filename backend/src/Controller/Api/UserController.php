@@ -3,12 +3,13 @@
 namespace App\Controller\Api;
 
 use App\Entity\User;
-use App\Repository\LikeRepository;
-use App\Repository\UserRepository;
 use App\Repository\TweetRepository;
 use App\Service\FollowService;
-use App\Service\BlockedAccountService;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Resolver\MediaUrlResolver;
+use App\Resolver\PaginationResolver;
+use App\Service\TweetApiFormatter;
+use App\Resolver\UserVisibilityResolver;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,13 +19,15 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/api', format: 'json')]
 class UserController extends AbstractController
 {
+    use ApiJsonResponderTrait;
+
     public function __construct(
-        private UserRepository $userRepository,
+        private UserVisibilityResolver $userVisibilityResolver,
         private TweetRepository $tweetRepository,
-        private LikeRepository $likeRepository,
         private FollowService $followService,
-        private EntityManagerInterface $em,
-        private BlockedAccountService $blockedAccountService,
+        private PaginationResolver $paginationResolver,
+        private MediaUrlResolver $mediaUrlResolver,
+        private TweetApiFormatter $tweetApiFormatter,
     ) {
     }
 
@@ -34,37 +37,33 @@ class UserController extends AbstractController
      */
     #[Route('/users/{id}', name: 'api.users.show', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
-    public function show(int $id): JsonResponse
+
+    public function show(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
-        $user = $this->userRepository->find($id);
-
-        if (!$user) {
-            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
+        $targetUser = $this->userVisibilityResolver->findVisibleById($id);
+        if ($targetUser === null) {
+            return $this->errorJson('Utilisateur non trouvé', 404);
         }
 
-        // If user is blocked, return 404
-        if ($this->blockedAccountService->isUserBlocked($user)) {
-            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
-        }
-
-        $currentUser = $this->getUser();
         $isFollowing = false;
+        $followerCount = $this->followService->getFollowerCount($targetUser);
+        $followingCount = $this->followService->getFollowingCount($targetUser);
         if ($currentUser instanceof User) {
-            $isFollowing = $this->followService->isFollowing($currentUser, $user);
+            $isFollowing = $this->followService->isFollowing($currentUser, $targetUser);
         }
 
         return $this->json([
             'user' => [
-                'id' => $user->getId(),
-                'email' => $user->getEmail(),
-                'username' => $user->getUsername(),
-                'bio' => $user->getBio(),
-                'profilePicture' => $user->getProfilePictureUrl(),
-                'banner' => $user->getBannerPictureUrl(),
-                'location' => $user->getLocation(),
-                'website' => $user->getWebsite(),
-                'followerCount' => $user->getFollowerCount(),
-                'followingCount' => $user->getFollowingCount(),
+                'id' => $targetUser->getId(),
+                'email' => $targetUser->getEmail(),
+                'username' => $targetUser->getUsername(),
+                'bio' => $targetUser->getBio(),
+                'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($targetUser->getProfilePicture()),
+                'banner' => $this->mediaUrlResolver->resolveUploadPath($targetUser->getBannerPicture()),
+                'location' => $targetUser->getLocation(),
+                'website' => $targetUser->getWebsite(),
+                'followerCount' => $followerCount,
+                'followingCount' => $followingCount,
                 'isFollowing' => $isFollowing,
             ],
         ], 200);
@@ -76,22 +75,17 @@ class UserController extends AbstractController
      */
     #[Route('/users/{id}/tweets', name: 'api.users.tweets', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
-    public function tweets(int $id, Request $request): JsonResponse
+    public function tweets(int $id, Request $request, #[CurrentUser] User $currentUser): JsonResponse
     {
-        $user = $this->userRepository->find($id);
-
-        if (!$user) {
-            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
+        $user = $this->userVisibilityResolver->findVisibleById($id);
+        if ($user === null) {
+            return $this->errorJson('Utilisateur non trouvé', 404);
         }
 
-        // If user is blocked, return 404
-        if ($this->blockedAccountService->isUserBlocked($user)) {
-            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
-        }
-
-        $page = max(1, (int) $request->query->get('page', 1));
-        $perPage = min(50, max(1, (int) $request->query->get('per_page', 20)));
-        $offset = ($page - 1) * $perPage;
+        $pagination = $this->paginationResolver->fromRequest($request);
+        $page = $pagination['page'];
+        $perPage = $pagination['perPage'];
+        $offset = $pagination['offset'];
 
         $tweets = $this->tweetRepository->findBy(
             ['author' => $user],
@@ -102,38 +96,7 @@ class UserController extends AbstractController
 
         $total = $this->tweetRepository->count(['author' => $user]);
 
-        $currentUser = $this->getUser();
-
-        $formattedTweets = array_map(function ($tweet) use ($currentUser) {
-            // Check if author is blocked and transform content and author name
-            $content = $tweet->getContent();
-            $authorUsername = $tweet->getAuthor()->getUsername();
-            $isBlocked = $this->blockedAccountService->isUserBlocked($tweet->getAuthor());
-            
-            if ($isBlocked) {
-                $content = 'Ce compte a été bloqué pour non respect des conditions d\'utilisation';
-                $authorUsername = 'Utilisateur introuvable';
-            }
-            
-            $tweetData = [
-                'id' => $tweet->getId(),
-                'content' => $content,
-                'createdAt' => $tweet->getCreatedAt(),
-                'author' => [
-                    'id' => $tweet->getAuthor()->getId(),
-                    'username' => $authorUsername,
-                    'profilePicture' => $tweet->getAuthor()->getProfilePictureUrl(),
-                ],
-            ];
-            
-            // Don't add like info for blocked accounts
-            if (!$isBlocked) {
-                $tweetData['likeCount'] = $this->likeRepository->countLikesForTweet($tweet);
-                $tweetData['isLiked'] = $this->likeRepository->hasUserLikedTweet($currentUser, $tweet);
-            }
-            
-            return $tweetData;
-        }, $tweets);
+        $formattedTweets = $this->tweetApiFormatter->formatCollection($tweets, $currentUser instanceof User ? $currentUser : null);
 
         return $this->json([
             'tweets' => $formattedTweets,
@@ -151,23 +114,20 @@ class UserController extends AbstractController
      */
     #[Route('/users/{id}/follow', name: 'api.users.follow', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
-    public function follow(int $id): JsonResponse
+    public function follow(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
-        $targetUser = $this->userRepository->find($id);
-
-        if (!$targetUser) {
-            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
+        $targetUser = $this->userVisibilityResolver->findVisibleById($id);
+        if ($targetUser === null) {
+            return $this->errorJson('Utilisateur non trouvé', 404);
         }
-
-        $currentUser = $this->getUser();
         if (!$currentUser instanceof User) {
-            return $this->json(['error' => 'Non authentifié'], 401);
+            return $this->errorJson('Non authentifié', 401);
         }
 
         try {
             $this->followService->follow($currentUser, $targetUser);
         } catch (\RuntimeException $e) {
-            return $this->json(['error' => $e->getMessage()], 400);
+            return $this->errorJson($e->getMessage(), 400);
         }
 
         return $this->json([
@@ -182,17 +142,15 @@ class UserController extends AbstractController
      */
     #[Route('/users/{id}/follow', name: 'api.users.unfollow', methods: ['DELETE'])]
     #[IsGranted('ROLE_USER')]
-    public function unfollow(int $id): JsonResponse
+    public function unfollow(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
-        $targetUser = $this->userRepository->find($id);
-
-        if (!$targetUser) {
-            return $this->json(['error' => 'Utilisateur non trouvé'], 404);
+        $targetUser = $this->userVisibilityResolver->findVisibleById($id);
+        if ($targetUser === null) {
+            return $this->errorJson('Utilisateur non trouvé', 404);
         }
 
-        $currentUser = $this->getUser();
         if (!$currentUser instanceof User) {
-            return $this->json(['error' => 'Non authentifié'], 401);
+            return $this->errorJson('Non authentifié', 401);
         }
 
         $this->followService->unfollow($currentUser, $targetUser);

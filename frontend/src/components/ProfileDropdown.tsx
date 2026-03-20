@@ -45,7 +45,7 @@ export default function ProfileDropdown({ user }: ProfileDropdownProps) {
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="md:hidden p-2 text-text-muted hover:text-tweet-author transition-colors flex items-center justify-center"
+        className="p-2 text-text-muted hover:text-tweet-author transition-colors flex items-center justify-center"
         title={user.username}
         type="button"
         aria-label="Profile menu"
@@ -62,13 +62,13 @@ export default function ProfileDropdown({ user }: ProfileDropdownProps) {
         <div className="absolute right-0 mt-2 w-48 bg-white border border-border-muted rounded-lg shadow-lg py-2 z-20">
           <button
             onClick={handleProfileClick}
-            className="w-full text-left px-4 py-2 text-text-primary hover:bg-background transition-colors text-sm"
+            className="w-full text-left px-4 py-2 text-text hover:bg-background transition-colors text-sm"
           >
             Mon profil
           </button>
           <button
             onClick={handleSettingsClick}
-            className="w-full text-left px-4 py-2 text-text-primary hover:bg-background transition-colors text-sm"
+            className="w-full text-left px-4 py-2 text-text hover:bg-background transition-colors text-sm"
           >
             Paramètres
           </button>
