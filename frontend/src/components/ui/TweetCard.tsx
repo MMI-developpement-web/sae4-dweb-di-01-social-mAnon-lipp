@@ -2,6 +2,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
+import { getImageUrl } from "../../lib/utils";
 import { useStore } from "../../store/StoreContext";
 import type { Tweet } from "../../lib/api";
 import Avatar from "./Avatar";
@@ -174,6 +175,37 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
           <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
             {tweet.content}
           </p>
+
+          {/* Media gallery */}
+          {tweet.medias && tweet.medias.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {tweet.medias.map((media, index) => {
+                const imageUrl = getImageUrl(media.url);
+                
+                if (media.type === 'image' && imageUrl) {
+                  return (
+                    <img
+                      key={index}
+                      src={imageUrl}
+                      alt={`Tweet media ${index + 1}`}
+                      className="w-full h-auto max-h-96 object-cover rounded-lg"
+                    />
+                  );
+                } else if (media.type === 'video' && imageUrl) {
+                  return (
+                    <video
+                      key={index}
+                      src={imageUrl}
+                      controls
+                      className="w-full h-40 sm:h-56 md:h-64 object-cover rounded-lg bg-black"
+                    />
+                  );
+                }
+                
+                return null;
+              })}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-8 pt-3 mt-2">

@@ -146,6 +146,11 @@ export interface Tweet {
   author: TweetAuthor;
   likeCount?: number;
   isLiked?: boolean;
+  medias?: Array<{
+    url: string;
+    type: 'image' | 'video';
+    mimeType: string;
+  }>;
 }
 
 export interface Pagination {
@@ -165,6 +170,10 @@ export interface User {
   website?: string;
 }
 
+interface RawCurrentUserResponse extends User {
+  banner?: string;
+}
+
 export interface TweetsResponse {
   tweets: Tweet[];
   pagination: Pagination;
@@ -182,11 +191,28 @@ export async function postTweet(content: string): Promise<Tweet> {
 }
 
 /**
+ * Post a tweet with media files
+ * POST /api/tweets
+ * Sends FormData with 'content' and optional 'media[]' files
+ */
+export async function postTweetWithMedia(formData: FormData): Promise<Tweet> {
+  return apiFetchFormData<Tweet>("/tweets", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+/**
  * Fetch current user profile
  * GET /api/me
  */
 export async function fetchCurrentUser(): Promise<User> {
-  return apiFetch<User>("/me");
+  const user = await apiFetch<RawCurrentUserResponse>("/me");
+
+  return {
+    ...user,
+    bannerPicture: user.bannerPicture ?? user.banner,
+  };
 }
 
 /**

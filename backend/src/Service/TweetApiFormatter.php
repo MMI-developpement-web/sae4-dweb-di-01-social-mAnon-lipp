@@ -44,6 +44,18 @@ class TweetApiFormatter
             $tweetData['isLiked'] = $currentUser instanceof User
                 ? $currentUser->getLikedTweets()->contains($tweet)
                 : false;
+            
+            // Add media URLs if present
+            if ($tweet->getMedias() && is_array($tweet->getMedias())) {
+                $tweetData['medias'] = array_map(
+                    fn (array $media): array => [
+                        'url' => $media['url'] ?? null, // URL already has /uploads/ prefix from TweetUploadService
+                        'type' => $media['type'] ?? 'image',
+                        'mimeType' => $media['mimeType'] ?? '',
+                    ],
+                    $tweet->getMedias()
+                );
+            }
         }
 
         return $tweetData;

@@ -15,12 +15,16 @@ class TweetService
     ) {
     }
 
-    public function createTweet(User $author, string $content): Tweet
+    public function createTweet(User $author, string $content, ?array $medias = null): Tweet
     {
         $tweet = new Tweet();
         $tweet->setContent($content);
         $tweet->setCreatedAt(new \DateTimeImmutable());
         $tweet->setAuthor($author);
+        
+        if ($medias !== null) {
+            $tweet->setMedias($medias);
+        }
 
         $this->em->persist($tweet);
         $this->em->flush();

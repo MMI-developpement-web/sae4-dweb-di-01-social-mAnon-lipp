@@ -5,9 +5,11 @@ namespace App\Controller\Api;
 use App\Dto\Payload\TweetPayload;
 use App\Entity\User;
 use App\Repository\TweetRepository;
+use App\Resolver\MediaUrlResolver;
 use App\Resolver\PaginationResolver;
 use App\Service\TweetApiFormatter;
 use App\Service\TweetService;
+use App\Service\TweetUploadService;
 use App\Service\LikeService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -28,6 +30,8 @@ class TweetController extends AbstractController
         private PaginationResolver $paginationResolver,
         private TweetApiFormatter $tweetApiFormatter,
         private TweetService $tweetService,
+        private TweetUploadService $tweetUploadService,
+        private MediaUrlResolver $mediaUrlResolver,
         private LikeService $likeService,
     ) {
     }
@@ -60,20 +64,63 @@ class TweetController extends AbstractController
     }
 
     /**
-     * Create a new tweet
+     * Create a new tweet with optional media uploads
      * POST /api/tweets
+     * Supports multipart/form-data with 'content' and optional file uploads
      */
     #[Route('/tweets', name: 'api.tweets.create', methods: ['POST'])]
     public function create(
-        #[MapRequestPayload] TweetPayload $payload,
-        #[CurrentUser] User $user
+        #[CurrentUser] User $user,
+        Request $request,
     ): JsonResponse
     {
-        $content = trim($payload->content);
+        $contentType = $request->headers->get('Content-Type', '');
+        $content = '';
+        $medias = null;
 
-        $tweet = $this->tweetService->createTweet($user, $content);
+        try {
+            // Check if it's multipart (with files) or JSON
+            if (str_starts_with($contentType, 'multipart/form-data')) {
+                // Symfony automatically parses multipart/form-data for POST requests
+                // Form fields are available via $request->request
+                // Files are available via $request->files
+                $content = trim($request->request->get('content', ''));
 
-        return $this->json($tweet, 201, [], ['groups' => 'default']);
+                // Get media files - they come as 'media[]'
+                $mediaFiles = $request->files->get('media', []);
+                if (!is_array($mediaFiles)) {
+                    $mediaFiles = [$mediaFiles];
+                }
+
+                // Upload media files if present
+                if (!empty($mediaFiles)) {
+                    $medias = $this->tweetUploadService->uploadTweetMedias($mediaFiles);
+                }
+            } else {
+                // Handle JSON request
+                $payload = new TweetPayload();
+                $payload->content = $request->getPayload()->get('content', '');
+                $content = trim($payload->content);
+            }
+
+            // Validate content is not empty
+            if (empty($content)) {
+                return $this->errorJson('Le tweet ne peut pas être vide', 400);
+            }
+
+            // Validate content length
+            if (strlen($content) > 280) {
+                return $this->errorJson('Le tweet ne peut pas dépasser 280 caractères', 400);
+            }
+
+            // Create tweet with optional medias
+            $tweet = $this->tweetService->createTweet($user, $content, $medias);
+
+            return $this->json($tweet, 201, [], ['groups' => 'default']);
+        } catch (\Exception $e) {
+            error_log("ERROR in create tweet: " . $e->getMessage());
+            return $this->errorJson('Erreur lors de la création du tweet: ' . $e->getMessage(), 400);
+        }
     }
 
     /**

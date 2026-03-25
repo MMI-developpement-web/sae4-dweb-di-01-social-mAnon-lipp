@@ -36,6 +36,10 @@ class Tweet
     #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'likedTweets')]
     private Collection $likedByUsers;
 
+    #[ORM\Column(type: 'json', nullable: true)]
+    #[Groups(['default'])]
+    private ?array $medias = null;
+
     public function __construct()
     {
         $this->likedByUsers = new ArrayCollection();
@@ -105,6 +109,18 @@ class Tweet
         if ($this->likedByUsers->removeElement($likedByUser)) {
             $likedByUser->removeLikedTweet($this);
         }
+
+        return $this;
+    }
+
+    public function getMedias(): ?array
+    {
+        return $this->medias;
+    }
+
+    public function setMedias(?array $medias): static
+    {
+        $this->medias = $medias;
 
         return $this;
     }

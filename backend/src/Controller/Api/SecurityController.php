@@ -145,7 +145,7 @@ class SecurityController extends AbstractController
             'email' => $user->getEmail(),
             'bio' => $user->getBio(),
             'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($user->getProfilePicture()),
-            'banner' => $this->mediaUrlResolver->resolveUploadPath($user->getBannerPicture()),
+            'bannerPicture' => $this->mediaUrlResolver->resolveUploadPath($user->getBannerPicture()),
             'location' => $user->getLocation(),
             'website' => $user->getWebsite(),
         ], 200, [], ['groups' => 'default']);
