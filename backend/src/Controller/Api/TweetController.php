@@ -118,7 +118,8 @@ class TweetController extends AbstractController
             // Create tweet with optional medias
             $tweet = $this->tweetService->createTweet($user, $content, $medias);
 
-            return $this->json($tweet, 201, [], ['groups' => 'default']);
+            $formattedTweet = $this->tweetApiFormatter->format($tweet, $user);
+            return $this->json($formattedTweet, 201);
         } catch (\Exception $e) {
             error_log("ERROR in create tweet: " . $e->getMessage());
             return $this->errorJson('Erreur lors de la création du tweet: ' . $e->getMessage(), 400);

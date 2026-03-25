@@ -22,10 +22,15 @@ class TweetApiFormatter
         $content = $tweet->getContent();
         $authorUsername = $tweet->getAuthor()->getUsername();
         $isBlocked = $this->blockedAccountService->isUserBlocked($tweet->getAuthor());
+        $isCensored = $tweet->isCensored() ?? false;
 
         if ($isBlocked) {
             $content = 'Ce compte a été bloqué pour non respect des conditions d\'utilisation';
             $authorUsername = 'Utilisateur introuvable';
+        }
+
+        if ($isCensored) {
+            $content = 'Ce message enfreint les conditions d\'utilisation de la plateforme';
         }
 
         $tweetData = [
@@ -39,7 +44,7 @@ class TweetApiFormatter
             ],
         ];
 
-        if (!$isBlocked) {
+        if (!$isBlocked && !$isCensored) {
             $tweetData['likeCount'] = $this->countVisibleLikes($tweet);
             $tweetData['isLiked'] = $currentUser instanceof User
                 ? $currentUser->getLikedTweets()->contains($tweet)
@@ -57,22 +62,25 @@ class TweetApiFormatter
                 );
             }
 
-            // Add replies
+            // Add replies - filter censored ones
             $replies = $tweet->getReplies();
             if ($replies && count($replies) > 0) {
-                $tweetData['replies'] = array_map(
-                    fn ($reply): array => [
-                        'id' => $reply->getId(),
-                        'content' => $reply->getContent(),
-                        'createdAt' => $reply->getCreatedAt(),
-                        'author' => [
-                            'id' => $reply->getAuthor()->getId(),
-                            'username' => $reply->getAuthor()->getUsername(),
-                            'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($reply->getAuthor()->getProfilePicture()),
+                $visibleReplies = $replies->filter(fn ($reply) => !($reply->isCensored() ?? false))->toArray();
+                if (count($visibleReplies) > 0) {
+                    $tweetData['replies'] = array_map(
+                        fn ($reply): array => [
+                            'id' => $reply->getId(),
+                            'content' => $reply->getContent(),
+                            'createdAt' => $reply->getCreatedAt(),
+                            'author' => [
+                                'id' => $reply->getAuthor()->getId(),
+                                'username' => $reply->getAuthor()->getUsername(),
+                                'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($reply->getAuthor()->getProfilePicture()),
+                            ],
                         ],
-                    ],
-                    $replies->toArray()
-                );
+                        $visibleReplies
+                    );
+                }
             }
         }
 

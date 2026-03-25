@@ -51,6 +51,9 @@ class Tweet
     #[Groups(['default'])]
     private Collection $replies;
 
+    #[ORM\Column]
+    private ?bool $isCensored = null;
+
     public function __construct()
     {
         $this->likedByUsers = new ArrayCollection();
@@ -175,6 +178,18 @@ class Tweet
                 $reply->setTweet(null);
             }
         }
+
+        return $this;
+    }
+
+    public function isCensored(): ?bool
+    {
+        return $this->isCensored;
+    }
+
+    public function setIsCensored(bool $isCensored): static
+    {
+        $this->isCensored = $isCensored;
 
         return $this;
     }
