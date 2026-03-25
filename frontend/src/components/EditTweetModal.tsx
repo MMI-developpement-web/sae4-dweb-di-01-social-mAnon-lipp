@@ -8,7 +8,7 @@ interface EditTweetModalProps {
   initialContent: string;
   medias?: Tweet['medias'];
   isLoading?: boolean;
-  onConfirm: (content: string, mediaIndicesToKeep: number[]) => void;
+  onConfirm: (content: string, remainingMediaIndices: number[]) => void;
   onCancel: () => void;
 }
 
@@ -21,29 +21,28 @@ export default function EditTweetModal({
   onCancel,
 }: EditTweetModalProps) {
   const [content, setContent] = useState(initialContent);
-  const [mediasToDelete, setMediasToDelete] = useState<Set<number>>(new Set());
+  const [removedMediaIndices, setRemovedMediaIndices] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (isOpen) {
       setContent(initialContent);
-      setMediasToDelete(new Set());
+      setRemovedMediaIndices(new Set());
     }
   }, [isOpen, initialContent]);
 
   const handleConfirm = () => {
     if (content.trim()) {
-      // Keep all media indices except the ones marked for deletion
-      const indicesToKeep = medias
+      const remainingIndices = medias
         ? medias
             .map((_, idx) => idx)
-            .filter((idx) => !mediasToDelete.has(idx))
+            .filter((idx) => !removedMediaIndices.has(idx))
         : [];
-      onConfirm(content.trim(), indicesToKeep);
+      onConfirm(content.trim(), remainingIndices);
     }
   };
 
-  const toggleDeleteMedia = (index: number) => {
-    setMediasToDelete((prev) => {
+  const toggleRemoveMedia = (index: number) => {
+    setRemovedMediaIndices((prev) => {
       const next = new Set(prev);
       if (next.has(index)) {
         next.delete(index);
@@ -90,7 +89,7 @@ export default function EditTweetModal({
                 <div
                   key={idx}
                   className={`flex items-center gap-2 p-2 rounded border ${
-                    mediasToDelete.has(idx)
+                    removedMediaIndices.has(idx)
                       ? "bg-red-50 border-red-200 opacity-50"
                       : "bg-gray-50 border-gray-200"
                   }`}
@@ -109,19 +108,19 @@ export default function EditTweetModal({
                     />
                   )}
                   <span className="text-xs text-text-muted flex-1">
-                    {media.type}
+                    {removedMediaIndices.has(idx) ? "À supprimer" : media.type}
                   </span>
                   <button
                     type="button"
-                    onClick={() => toggleDeleteMedia(idx)}
+                    onClick={() => toggleRemoveMedia(idx)}
                     disabled={isLoading}
                     className={`px-2 py-1 text-xs rounded font-medium transition-colors ${
-                      mediasToDelete.has(idx)
-                        ? "bg-gray-300 text-gray-600"
+                      removedMediaIndices.has(idx)
+                        ? "bg-gray-300 text-gray-600 hover:bg-gray-400"
                         : "bg-red-500 text-white hover:bg-red-600"
                     }`}
                   >
-                    {mediasToDelete.has(idx) ? "Garder" : "Supprimer"}
+                    {removedMediaIndices.has(idx) ? "Garder" : "Supprimer"}
                   </button>
                 </div>
               ))}

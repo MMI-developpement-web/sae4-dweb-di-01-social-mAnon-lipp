@@ -152,6 +152,14 @@ export interface Tweet {
     type: 'image' | 'video';
     mimeType: string;
   }>;
+  replies?: Reply[];
+}
+
+export interface Reply {
+  id: number;
+  content: string;
+  author: TweetAuthor;
+  createdAt: string;
 }
 
 export interface Pagination {
@@ -383,5 +391,29 @@ export async function updateProfile(
     body: JSON.stringify(normalizedData),
   });
 }
+
+// Reply API
+
+/**
+ * Create a reply to a tweet
+ * POST /api/tweets/:tweetId/replies
+ */
+export async function createReply(tweetId: number, content: string): Promise<Reply> {
+  return apiFetch<Reply>(`/tweets/${tweetId}/replies`, {
+    method: "POST",
+    body: JSON.stringify({ tweetId, content }),
+  });
+}
+
+/**
+ * Delete a reply
+ * DELETE /api/replies/:replyId
+ */
+export async function deleteReply(replyId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/replies/${replyId}`, {
+    method: "DELETE",
+  });
+}
+
 
 

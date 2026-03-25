@@ -44,9 +44,17 @@ class Tweet
     #[Groups(['default'])]
     private ?array $medias = null;
 
+    /**
+     * @var Collection<int, Reply>
+     */
+    #[ORM\OneToMany(targetEntity: Reply::class, mappedBy: 'tweet', cascade: ['remove'])]
+    #[Groups(['default'])]
+    private Collection $replies;
+
     public function __construct()
     {
         $this->likedByUsers = new ArrayCollection();
+        $this->replies = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -137,6 +145,36 @@ class Tweet
     public function setMedias(?array $medias): static
     {
         $this->medias = $medias;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Reply>
+     */
+    public function getReplies(): Collection
+    {
+        return $this->replies;
+    }
+
+    public function addReply(Reply $reply): static
+    {
+        if (!$this->replies->contains($reply)) {
+            $this->replies->add($reply);
+            $reply->setTweet($this);
+        }
+
+        return $this;
+    }
+
+    public function removeReply(Reply $reply): static
+    {
+        if ($this->replies->removeElement($reply)) {
+            // set the owning side to null (unless already changed)
+            if ($reply->getTweet() === $this) {
+                $reply->setTweet(null);
+            }
+        }
 
         return $this;
     }

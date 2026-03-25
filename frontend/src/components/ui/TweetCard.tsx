@@ -1,12 +1,14 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { getImageUrl } from "../../lib/utils";
 import { useStore } from "../../store/StoreContext";
-import type { Tweet } from "../../lib/api";
+import type { Tweet, Reply } from "../../lib/api";
 import Avatar from "./Avatar";
 import Heart from "./Heart";
+import ReplyForm from "./ReplyForm";
+import ReplyList from "./ReplyList";
 import ConfirmDeleteModal from "../ConfirmDeleteModal";
 import EditTweetModal from "../EditTweetModal";
 
@@ -60,9 +62,18 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replies, setReplies] = useState<Reply[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isModifying, setIsModifying] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+
+  // Load replies from tweet when component mounts or tweet changes
+  useEffect(() => {
+    if (tweet.replies && tweet.replies.length > 0) {
+      setReplies(tweet.replies);
+    }
+  }, [tweet.id]);
 
   // Get the latest tweet from store (or use passed tweet)
   const currentTweet = tweets.get(tweet.id) || tweet;
@@ -136,6 +147,11 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
     } finally {
       setIsModifying(false);
     }
+  };
+
+  const handleReplyCreated = (reply: Reply) => {
+    setReplies([...replies, reply]);
+    setShowReplyForm(false);
   };
 
   return (
@@ -262,6 +278,22 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
 
           {/* Actions */}
           <div className="flex justify-end gap-8 pt-3 mt-2">
+            <button
+              onClick={() => setShowReplyForm(!showReplyForm)}
+              className="text-tweet-meta hover:bg-blue-50 hover:text-blue-500 rounded-full p-2 transition-colors flex items-center gap-2 text-sm"
+              aria-label="Répondre au tweet"
+            >
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              {replies.length > 0 && <span>{replies.length}</span>}
+            </button>
             <Heart
               isLiked={isCurrentUserLiked}
               likeCount={currentTweet.likeCount}
@@ -301,6 +333,12 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
         onConfirm={handleConfirmEdit}
         onCancel={() => setShowEditModal(false)}
       />
+
+      {/* Reply form and list */}
+      {showReplyForm && (
+        <ReplyForm tweet={tweet} onReplyCreated={handleReplyCreated} />
+      )}
+      <ReplyList replies={replies} />
     </>
   );
 }

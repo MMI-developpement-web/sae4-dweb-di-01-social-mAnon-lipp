@@ -90,6 +90,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\ManyToMany(targetEntity: Tweet::class, inversedBy: 'likedByUsers')]
     private Collection $likedTweets;
 
+    /**
+     * @var Collection<int, Reply>
+     */
+    #[ORM\OneToMany(targetEntity: Reply::class, mappedBy: 'author')]
+    private Collection $replies;
+
     public function __construct()
     {
         $this->tokens = new ArrayCollection();
@@ -98,6 +104,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->followingUsers = new ArrayCollection();
         $this->followersUsers = new ArrayCollection();
         $this->likedTweets = new ArrayCollection();
+        $this->replies = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -406,6 +413,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function removeLikedTweet(Tweet $likedTweet): static
     {
         $this->likedTweets->removeElement($likedTweet);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Reply>
+     */
+    public function getReplies(): Collection
+    {
+        return $this->replies;
+    }
+
+    public function addReply(Reply $reply): static
+    {
+        if (!$this->replies->contains($reply)) {
+            $this->replies->add($reply);
+            $reply->setAuthor($this);
+        }
+
+        return $this;
+    }
+
+    public function removeReply(Reply $reply): static
+    {
+        if ($this->replies->removeElement($reply)) {
+            // set the owning side to null (unless already changed)
+            if ($reply->getAuthor() === $this) {
+                $reply->setAuthor(null);
+            }
+        }
 
         return $this;
     }

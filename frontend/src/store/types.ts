@@ -16,6 +16,17 @@ import type { User as ApiUser, UserProfile as ApiUserProfile } from '../lib/api'
 export type User = ApiUser;
 export type UserProfile = ApiUserProfile;
 
+export interface Reply {
+  id: number;
+  content: string;
+  author: {
+    id: number;
+    username: string;
+    profilePicture?: string;
+  };
+  createdAt: string;
+}
+
 export interface Tweet {
   id: number;
   content: string;
@@ -33,6 +44,7 @@ export interface Tweet {
     type: 'image' | 'video';
     mimeType: string;
   }>;
+  replies?: Reply[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

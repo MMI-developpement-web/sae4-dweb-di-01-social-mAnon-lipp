@@ -56,6 +56,24 @@ class TweetApiFormatter
                     $tweet->getMedias()
                 );
             }
+
+            // Add replies
+            $replies = $tweet->getReplies();
+            if ($replies && count($replies) > 0) {
+                $tweetData['replies'] = array_map(
+                    fn ($reply): array => [
+                        'id' => $reply->getId(),
+                        'content' => $reply->getContent(),
+                        'createdAt' => $reply->getCreatedAt(),
+                        'author' => [
+                            'id' => $reply->getAuthor()->getId(),
+                            'username' => $reply->getAuthor()->getUsername(),
+                            'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($reply->getAuthor()->getProfilePicture()),
+                        ],
+                    ],
+                    $replies->toArray()
+                );
+            }
         }
 
         return $tweetData;
