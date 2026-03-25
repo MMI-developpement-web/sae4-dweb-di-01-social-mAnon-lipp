@@ -2,17 +2,21 @@
 
 namespace App\Controller\Api;
 
+use App\Dto\Payload\UpdateProfilePayload;
 use App\Entity\User;
 use App\Repository\TweetRepository;
 use App\Service\FollowService;
+use App\Service\UpdateProfileService;
 use App\Resolver\MediaUrlResolver;
 use App\Resolver\PaginationResolver;
 use App\Service\TweetApiFormatter;
 use App\Resolver\UserVisibilityResolver;
+use App\Trait\ParseMultipartTrait;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -20,6 +24,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class UserController extends AbstractController
 {
     use ApiJsonResponderTrait;
+    use ParseMultipartTrait;
 
     public function __construct(
         private UserVisibilityResolver $userVisibilityResolver,
@@ -28,6 +33,7 @@ class UserController extends AbstractController
         private PaginationResolver $paginationResolver,
         private MediaUrlResolver $mediaUrlResolver,
         private TweetApiFormatter $tweetApiFormatter,
+        private UpdateProfileService $updateProfileService,
     ) {
     }
 
@@ -59,7 +65,7 @@ class UserController extends AbstractController
                 'username' => $targetUser->getUsername(),
                 'bio' => $targetUser->getBio(),
                 'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($targetUser->getProfilePicture()),
-                'banner' => $this->mediaUrlResolver->resolveUploadPath($targetUser->getBannerPicture()),
+                'bannerPicture' => $this->mediaUrlResolver->resolveUploadPath($targetUser->getBannerPicture()),
                 'location' => $targetUser->getLocation(),
                 'website' => $targetUser->getWebsite(),
                 'followerCount' => $followerCount,
@@ -159,5 +165,89 @@ class UserController extends AbstractController
             'message' => 'Vous ne suivez plus cet utilisateur',
             'isFollowing' => false,
         ], 200);
+    }
+
+    /**
+     * Update user profile
+     * PUT /api/users/{id}
+     */
+    #[Route('/users/{id}', name: 'api.users.update', methods: ['PUT'])]
+    #[IsGranted('ROLE_USER')]
+    public function update(
+        int $id,
+        #[CurrentUser] User $currentUser,
+        Request $request,
+    ): JsonResponse {
+        // Only allow users to update their own profile
+        if ($currentUser->getId() !== $id) {
+            return $this->errorJson('Vous ne pouvez modifier que votre propre profil', 403);
+        }
+
+        $contentType = $request->headers->get('Content-Type', '');
+        
+        // Parse multipart form data for non-POST requests
+        if (str_starts_with($contentType, 'multipart/form-data')) {
+            $parsed = $this->parseMultipartRequest($request);
+            $data = $parsed['fields'];
+            
+            // Convert parsed files to UploadedFile objects
+            $uploadedFiles = [];
+            foreach ($parsed['files'] as $fieldName => $fileInfo) {
+                error_log("DEBUG: Creating UploadedFile for $fieldName from " . $fileInfo['tmp_name']);
+                $uploadedFiles[$fieldName] = new UploadedFile(
+                    $fileInfo['tmp_name'],
+                    $fileInfo['name'],
+                    $fileInfo['type'],
+                    $fileInfo['error'],
+                    true  // TEST MODE - trust the file is valid
+                );
+                error_log("DEBUG: UploadedFile created: " . $uploadedFiles[$fieldName]->getClientOriginalName());
+            }
+        } else {
+            // Handle JSON requests
+            $data = json_decode($request->getContent(), true) ?? [];
+            $uploadedFiles = [];
+        }
+        
+        $payload = new UpdateProfilePayload();
+        $payload->bio = $data['bio'] ?? null;
+        $payload->website = $data['website'] ?? null;
+        $payload->location = $data['location'] ?? null;
+
+        // Get file uploads
+        $profilePicture = $uploadedFiles['profilePicture'] ?? null;
+        $bannerPicture = $uploadedFiles['bannerPicture'] ?? null;
+
+        error_log("DEBUG: profilePicture: " . (is_object($profilePicture) ? get_class($profilePicture) . " ({$profilePicture->getClientOriginalName()})" : var_export($profilePicture, true)));
+        error_log("DEBUG: bannerPicture: " . (is_object($bannerPicture) ? get_class($bannerPicture) . " ({$bannerPicture->getClientOriginalName()})" : var_export($bannerPicture, true)));
+
+        // Update profile
+        try {
+            $updatedUser = $this->updateProfileService->updateProfile(
+                $currentUser,
+                $payload->bio,
+                $payload->website,
+                $payload->location,
+                $profilePicture,
+                $bannerPicture,
+            );
+
+            return $this->json([
+                'user' => [
+                    'id' => $updatedUser->getId(),
+                    'email' => $updatedUser->getEmail(),
+                    'username' => $updatedUser->getUsername(),
+                    'bio' => $updatedUser->getBio(),
+                    'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($updatedUser->getProfilePicture()),
+                    'bannerPicture' => $this->mediaUrlResolver->resolveUploadPath($updatedUser->getBannerPicture()),
+                    'location' => $updatedUser->getLocation(),
+                    'website' => $updatedUser->getWebsite(),
+                ],
+                'message' => 'Profil mis à jour avec succès',
+            ], 200);
+        } catch (\Exception $e) {
+            error_log("ERROR in update profile: " . $e->getMessage());
+            return $this->errorJson('Erreur lors de la mise à jour: ' . $e->getMessage(), 400);
+        }
     }
 }

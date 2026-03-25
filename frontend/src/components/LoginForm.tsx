@@ -21,11 +21,17 @@ export default function LoginForm() {
       
       // Store token in localStorage
       localStorage.setItem("auth_token", response.token);
+      window.dispatchEvent(new Event("authTokenChanged"));
       
       // Redirect to home/feed
       navigate("/");
-    } catch {
-      setError("Email ou mot de passe incorrect.");
+    } catch (error: any) {
+      // Handle different error types
+      if (error?.error === "Ce compte a été bloqué pour non respect des conditions d'utilisation") {
+        setError("Ce compte a été bloqué pour non respect des conditions d'utilisation. Contactez l'administrateur pour plus d'informations.");
+      } else {
+        setError("Email ou mot de passe incorrect.");
+      }
     } finally {
       setIsLoading(false);
     }

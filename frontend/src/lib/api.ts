@@ -17,10 +17,59 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   if (!res.ok) {
     let errorData;
     try {
-      errorData = await res.json();
-    } catch {
-      const text = await res.text();
-      errorData = { error: text };
+      const contentType = res.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        errorData = await res.json();
+      } else {
+        const text = await res.text();
+        errorData = { error: text || `HTTP ${res.status}` };
+      }
+    } catch (e) {
+      errorData = { error: `HTTP ${res.status}` };
+    }
+    throw errorData;
+  }
+  return res.json() as Promise<T>;
+}
+
+/**
+ * Fetch with FormData (for file uploads) — doesn't set Content-Type header
+ * The browser will set it automatically with the boundary
+ */
+export async function apiFetchFormData<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem("auth_token");
+  const authHeaders: HeadersInit = {};
+  if (token) {
+    authHeaders.Authorization = `Bearer ${token}`;
+  }
+  
+  // Properly merge headers to avoid overwriting auth header
+  const mergedHeaders = {
+    ...authHeaders,
+    ...(options?.headers || {}),
+  };
+  
+  const res = await fetch(`${API_BASE}${path}`, {
+    cache: "no-store",
+    ...options,
+    headers: mergedHeaders,
+  });
+  if (res.status === 401 && !window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/register")) {
+    localStorage.removeItem("auth_token");
+    window.location.href = "/login";
+  }
+  if (!res.ok) {
+    let errorData;
+    try {
+      const contentType = res.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        errorData = await res.json();
+      } else {
+        const text = await res.text();
+        errorData = { error: text || `HTTP ${res.status}` };
+      }
+    } catch (e) {
+      errorData = { error: `HTTP ${res.status}` };
     }
     throw errorData;
   }
@@ -65,9 +114,7 @@ export async function logout(): Promise<void> {
   
   // Clear the token from localStorage
   localStorage.removeItem("auth_token");
-  
-  // Redirect to login page
-  window.location.href = "/login";
+  window.dispatchEvent(new Event("authTokenChanged"));
 }
 
 
@@ -113,7 +160,7 @@ export interface User {
   email: string;
   bio?: string;
   profilePicture?: string;
-  banner?: string;
+  bannerPicture?: string;
   location?: string;
   website?: string;
 }
@@ -179,7 +226,7 @@ export interface UserProfile {
   username: string;
   bio?: string;
   profilePicture?: string;
-  banner?: string;
+  bannerPicture?: string;
   location?: string;
   website?: string;
   followerCount: number;
@@ -231,4 +278,72 @@ export async function unfollowUser(userId: number): Promise<FollowResponse> {
     method: "DELETE",
   });
 }
+
+// Profile Update API
+
+export interface UpdateProfileRequest {
+  bio?: string;
+  website?: string;
+  location?: string;
+}
+
+export interface UpdateProfileResponse {
+  user: User;
+  message: string;
+}
+
+/**
+ * Update user profile
+ * PUT /api/users/:id
+ * Supports both JSON payload and multipart form data with file uploads
+ */
+export async function updateProfile(
+  userId: number,
+  data: UpdateProfileRequest,
+  profilePicture?: File,
+  bannerPicture?: File,
+): Promise<UpdateProfileResponse> {
+  // If there are files to upload, use FormData
+  if (profilePicture || bannerPicture) {
+    const formData = new FormData();
+    
+    // Append text fields (trimmed, but always included to ensure proper FormData structure)
+    if (data.bio !== undefined) formData.append('bio', data.bio.trim());
+    if (data.website !== undefined) formData.append('website', data.website.trim());
+    if (data.location !== undefined) formData.append('location', data.location.trim());
+    
+    // Append file uploads
+    if (profilePicture) formData.append('profilePicture', profilePicture);
+    if (bannerPicture) formData.append('bannerPicture', bannerPicture);
+    
+    // Debug logging
+    console.log('🔍 DEBUG updateProfile:', {
+      bio: data.bio?.substring(0, 20),
+      website: data.website?.substring(0, 20),
+      location: data.location?.substring(0, 20),
+      profilePicture: profilePicture ? `File(${profilePicture.name}, ${profilePicture.size} bytes)` : undefined,
+      bannerPicture: bannerPicture ? `File(${bannerPicture.name}, ${bannerPicture.size} bytes)` : undefined,
+      formDataEntries: Array.from(formData.entries()).map(([k, v]) => `${k}: ${v instanceof File ? `File(${v.name})` : v}`),
+    });
+    
+    return apiFetchFormData<UpdateProfileResponse>(`/users/${userId}`, {
+      method: "PUT",
+      body: formData,
+    });
+  }
+  
+  // Otherwise, send as JSON (only include non-empty values)
+  const normalizedData: UpdateProfileRequest = {};
+  if (data.bio !== undefined && data.bio.trim()) normalizedData.bio = data.bio.trim();
+  if (data.website !== undefined && data.website.trim()) normalizedData.website = data.website.trim();
+  if (data.location !== undefined && data.location.trim()) normalizedData.location = data.location.trim();
+  
+  console.log('🔍 DEBUG updateProfile (JSON)', { normalizedData });
+  
+  return apiFetch<UpdateProfileResponse>(`/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(normalizedData),
+  });
+}
+
 

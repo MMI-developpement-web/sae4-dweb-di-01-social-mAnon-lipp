@@ -69,6 +69,7 @@ export default function RegisterForm() {
       
       // Store token in localStorage
       localStorage.setItem("auth_token", response.token);
+      window.dispatchEvent(new Event("authTokenChanged"));
       
       // Redirect to home/feed
       navigate("/");

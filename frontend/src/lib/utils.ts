@@ -7,13 +7,13 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Build a complete image URL from a relative path
- * Handles both relative paths (/uploads/...) and absolute URLs (http://...)
+ * Handles both relative paths (/uploads/...) and absolute URLs (http://..., blob:...)
  */
 export function getImageUrl(path?: string): string | undefined {
   if (!path) return undefined;
   
-  // Already an absolute URL
-  if (path.startsWith("http://") || path.startsWith("https://")) {
+  // Already an absolute URL (http, https, or blob)
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("blob:")) {
     return path;
   }
   

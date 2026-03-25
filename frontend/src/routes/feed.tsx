@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import NavBar from "../components/NavBar";
 import TweetCard from "../components/ui/TweetCard";
 import Button from "../components/ui/Button";
+import { useStore } from "../store/StoreContext";
 import { fetchTweets, type TweetsResponse } from "../lib/api";
 import { useAutoRefresh } from "../hooks/useAutoRefresh";
 
@@ -17,6 +18,7 @@ export async function loader(): Promise<TweetsResponse | Response> {
 
 export default function Feed() {
   const initialData = useLoaderData() as TweetsResponse;
+  const { addTweet, initializeLikes } = useStore();
 
   const [tweets, setTweets] = useState(initialData.tweets);
   const [currentPage, setCurrentPage] = useState(1);
@@ -28,6 +30,15 @@ export default function Feed() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const hasMore = tweets.length < totalItems;
+
+  // Initialize Store with loaded tweets and their like state
+  useEffect(() => {
+    // Add all tweets to the Store cache
+    initialData.tweets.forEach((tweet) => addTweet(tweet));
+    
+    // Initialize liked tweets from the initial feed
+    initializeLikes(initialData.tweets);
+  }, [initialData.tweets, addTweet, initializeLikes]);
 
   const fetchFeedData = useCallback(async () => {
     const newData = await fetchTweets(1, PER_PAGE);
@@ -103,7 +114,7 @@ export default function Feed() {
 
         <div ref={sentinelRef} className="h-1" aria-hidden />
       </main>
-      <NavBar />
+      <NavBar mode="mobile" />
     </div>
   );
 }

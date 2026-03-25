@@ -1,10 +1,9 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
-import { useAuth } from "../../contexts/AuthContext";
+import { useStore } from "../../store/StoreContext";
 import type { Tweet } from "../../lib/api";
-import { deleteTweet, likeTweet, unlikeTweet } from "../../lib/api";
 import Avatar from "./Avatar";
 import Heart from "./Heart";
 import ConfirmDeleteModal from "../ConfirmDeleteModal";
@@ -45,20 +44,28 @@ function formatDate(isoDate: string): string {
 
 export default function TweetCard({ tweet, variant, className, onDelete }: TweetCardProps) {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const {
+    currentUser,
+    tweets,
+    likeTweet,
+    unlikeTweet,
+    deleteTweet,
+    isLiked,
+    errors,
+    clearError,
+  } = useStore();
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isLiked, setIsLiked] = useState(tweet.isLiked ?? false);
-  const [likeCount, setLikeCount] = useState(tweet.likeCount ?? 0);
   const [isLiking, setIsLiking] = useState(false);
 
+  // Get the latest tweet from store (or use passed tweet)
+  const currentTweet = tweets.get(tweet.id) || tweet;
+  const isCurrentUserLiked = isLiked(tweet.id);
   const isOwner = currentUser && currentUser.id === tweet.author.id;
 
-  // Sync state when tweet data changes from API
-  useEffect(() => {
-    setIsLiked(tweet.isLiked ?? false);
-    setLikeCount(tweet.likeCount ?? 0);
-  }, [tweet.id, tweet.isLiked, tweet.likeCount]);
+  // Get error for like action
+  const likeError = errors['likeTweet'] || errors['unlikeTweet'] || null;
 
   const handleAuthorClick = () => {
     navigate(`/profile/${tweet.author.id}`);
@@ -74,7 +81,9 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
       await deleteTweet(tweet.id);
       setShowDeleteModal(false);
       onDelete?.(tweet.id);
+      clearError('deleteTweet');
     } catch (error) {
+      console.error("Erreur lors de la suppression du tweet:", error);
       setIsDeleting(false);
     }
   };
@@ -82,9 +91,8 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
   const handleLike = async () => {
     setIsLiking(true);
     try {
-      const response = await likeTweet(tweet.id);
-      setIsLiked(true);
-      setLikeCount(response.likeCount);
+      await likeTweet(tweet.id);
+      clearError('likeTweet');
     } catch (error) {
       console.error("Erreur lors du like:", error);
     } finally {
@@ -95,9 +103,8 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
   const handleUnlike = async () => {
     setIsLiking(true);
     try {
-      const response = await unlikeTweet(tweet.id);
-      setIsLiked(false);
-      setLikeCount(response.likeCount);
+      await unlikeTweet(tweet.id);
+      clearError('unlikeTweet');
     } catch (error) {
       console.error("Erreur lors du unlike:", error);
     } finally {
@@ -137,7 +144,7 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
                 {formatDate(tweet.createdAt)}
               </span>
             </div>
-            
+
             {/* Delete button (visible only if owner) */}
             {isOwner && (
               <button
@@ -145,11 +152,11 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
                 className="text-red-500 hover:bg-red-50 rounded-full p-2 transition-colors flex-shrink-0"
                 aria-label="Supprimer le tweet"
               >
-                <svg 
-                  className="w-4 h-4" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -171,8 +178,8 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
           {/* Actions */}
           <div className="flex justify-end gap-8 pt-3 mt-2">
             <Heart
-              isLiked={isLiked}
-              likeCount={likeCount}
+              isLiked={isCurrentUserLiked}
+              likeCount={currentTweet.likeCount}
               onLike={handleLike}
               onUnlike={handleUnlike}
               isLoading={isLiking}
@@ -180,6 +187,13 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
               size="md"
             />
           </div>
+
+          {/* Error display */}
+          {likeError && (
+            <div className="text-red-500 text-xs mt-2">
+              {likeError}
+            </div>
+          )}
         </div>
       </article>
 

@@ -76,13 +76,13 @@ export default function Profile() {
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
       <main className="flex flex-col">
-        {/* Banner with back button */}
+        {/* Banner with back button and edit button */}
         <div className="relative">
           <Banner
-            src={profile.banner}
+            src={profile.bannerPicture}
             alt={`${profile.username}'s banner`}
           />
-          <div className="absolute top-5 left-5">
+          <div className="absolute top-5 left-5 right-5 flex items-center justify-between">
             <Button
               variant="ghost"
               size="icon"
@@ -102,6 +102,20 @@ export default function Profile() {
                 <path d="M11 2L2 10l9 8" />
               </svg>
             </Button>
+            {isOwnProfile && (
+              <Button
+                variant="primary"
+                size="sm"
+                type="button"
+                onClick={() => navigate('/profile/edit')}
+              >
+                <svg className="w-4 h-4 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                Modifier
+              </Button>
+            )}
           </div>
         </div>
 

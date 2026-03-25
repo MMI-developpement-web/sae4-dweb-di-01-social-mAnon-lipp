@@ -1,5 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn, getImageUrl } from "../../lib/utils";
+import placeholder from "../../assets/placeholder_account.jpg";
 
 const avatarVariants = cva(
   "object-cover flex-shrink-0 rounded-lg",
@@ -23,7 +24,7 @@ interface AvatarProps extends VariantProps<typeof avatarVariants> {
   className?: string;
 }
 
-const DEFAULT_AVATAR = "/placeholder_account.jpg";
+const DEFAULT_AVATAR = placeholder;
 
 export default function Avatar({ src, alt, size, className }: AvatarProps) {
   const imageUrl = getImageUrl(src) || DEFAULT_AVATAR;

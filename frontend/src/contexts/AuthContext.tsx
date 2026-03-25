@@ -33,7 +33,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     loadUser();
-  }, []);
+   // Listen for changes in localStorage (e.g., new login in another tab or after navigation)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "auth_token") {
+        if (e.newValue) {
+          // Token was set - load the user
+          loadUser();
+        } else {
+          // Token was removed - clear the user
+          setCurrentUser(null);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+// Listen for custom event (same-tab token changes, e.g., after login)
+    const handleAuthTokenChanged = () => {
+      loadUser();
+    };
+    
+    window.addEventListener("authTokenChanged", handleAuthTokenChanged);
+    
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("authTokenChanged", handleAuthTokenChanged);
+    };  }, []);
+
 
   return (
     <AuthContext.Provider value={{ currentUser, isLoading }}>

@@ -27,7 +27,11 @@ A full-stack social network application built with:
 2. Call `query-docs` with the resolved ID and a specific query
 3. Use returned examples as the basis for generated code
 
-**Always refer to `docs/architecture.md`** for the complete project architecture and file structure before generating any code.
+**Always refer to:**
+- `docs/architecture.md` for the complete project architecture and file structure
+- `docs/store-pattern-react-typescript.md` for frontend state management and Store Pattern implementation
+
+before generating any code.
 
 **Always use Doctrine** but ask me to do it, every entity must be generated with a migration and made by me using Doctrine in the terminal, never edit the DB schema manually.Never ever write into the Entity folder without asking me, I will generate the entity and the migration with Doctrine. You have to always ask to generate the entity and the migration with Doctrine, never write into the Entity folder without asking me.
 
@@ -184,6 +188,77 @@ export default function Feed() {
   }, []);
 }
 ```
+
+### Store Pattern — Mandatory State Management
+
+**EVERY component that needs shared state MUST use the Store Pattern. No exceptions.**
+
+The Store is a centralized state container (via React Context) that eliminates prop drilling and keeps components decoupled.
+
+**File structure:**
+```
+src/
+├── store/
+│   ├── types.ts           # All TypeScript types (User, Post, AppState, StoreContextType, StoreActions)
+│   ├── StoreContext.tsx   # The Context, Provider, all actions, and useStore hook
+│   └── createResource.ts  # Optional: Suspense utilities for API data fetching
+├── components/...
+└── routes/...
+```
+
+**Core patterns:**
+
+1. **Define all types in `store/types.ts`:**
+```ts
+export interface User { id: number; username: string; ... }
+export interface Post { id: number; authorId: number; ... }
+export interface AppState { currentUser: User | null; posts: Post[]; ... }
+export interface StoreActions { 
+  login: (user: User) => void;
+  addPost: (post: Post) => void;
+  toggleLike: (postId: number) => void;
+}
+export type StoreContextType = AppState & StoreActions;
+```
+
+2. **Implement the Provider in `store/StoreContext.tsx`:**
+   - Use `createContext<StoreContextType | null>(null)`
+   - Create `StoreProvider` component with all `useState` hooks
+   - Define all action functions inside the provider
+   - Export `useStore()` hook that validates context is available
+   ```tsx
+   export const useStore = (): StoreContextType => {
+     const context = useContext(StoreContext);
+     if (!context) throw new Error("useStore must be used inside <StoreProvider>");
+     return context;
+   };
+   ```
+
+3. **Wrap the app in `main.tsx`:**
+   ```tsx
+   <StoreProvider>
+     <RouterProvider router={router} />
+   </StoreProvider>
+   ```
+
+4. **Use in any component — NO prop drilling:**
+   ```tsx
+   const MyComponent = () => {
+     const { currentUser, addPost } = useStore();
+     // Direct access to store state and actions
+   };
+   ```
+
+**Rules:**
+- ✅ Modify state **ONLY** through Store actions — never directly mutate
+- ✅ Always create **new objects/arrays** when modifying state: `[...prev, item]`, `prev.filter(...)`, `prev.map(...)`
+- ✅ Keep components stateless — they call actions and read Store, nothing else
+- ✅ Business logic goes in Store actions, never in components
+- ✅ Every global piece of data (user, posts, notifications, etc.) belongs in the Store
+
+**No useState/useEffect for shared data:** If multiple components need it, it MUST be in the Store.
+
+---
 
 ### Tailwind CSS rules — Mobile-First
 - The app is **mobile-first**: unprefixed utility classes target mobile screens, breakpoint prefixes (`sm:`, `md:`, `lg:`, `xl:`) add overrides for larger screens

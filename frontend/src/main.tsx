@@ -2,12 +2,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
-import { AuthProvider } from "./contexts/AuthContext";
+import { StoreProvider } from "./store/StoreContext";
 import Register from "./routes/register";
 import Login from "./routes/login";
 import Feed, { loader as feedLoader } from "./routes/feed";
 import Post, { loader as postLoader } from "./routes/post";
 import Profile, { loader as profileLoader } from "./routes/profile";
+import EditProfile, { loader as editProfileLoader } from "./routes/editProfile";
 import Settings, { loader as settingsLoader } from "./routes/settings";
 import ErrorPage from "./routes/error";
 
@@ -44,6 +45,13 @@ const router = createBrowserRouter([
     HydrateFallback: () => null,
   },
   {
+    path: "/profile/edit",
+    element: <EditProfile />,
+    loader: editProfileLoader,
+    errorElement: <ErrorPage />,
+    HydrateFallback: () => null,
+  },
+  {
     path: "/profile/:id",
     element: <Profile />,
     loader: profileLoader,
@@ -61,9 +69,9 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <AuthProvider>
+    <StoreProvider>
       <RouterProvider router={router} />
-    </AuthProvider>
+    </StoreProvider>
   </StrictMode>,
 );
 

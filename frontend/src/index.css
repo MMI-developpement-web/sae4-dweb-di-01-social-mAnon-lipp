@@ -93,26 +93,3 @@
     min-height: 758px;
   }
 }
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
-  font-family: "Poppins", system-ui, sans-serif;
-  background-color: var(--color-background);
-  color: var(--color-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  text-decoration: none;
-}

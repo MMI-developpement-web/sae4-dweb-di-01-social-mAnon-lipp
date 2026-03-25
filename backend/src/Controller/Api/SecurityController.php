@@ -3,10 +3,12 @@
 namespace App\Controller\Api;
 
 use App\Dto\Payload\RegisterPayload;
+use App\Dto\Payload\LoginPayload;
 use App\Entity\User;
 use App\Resolver\MediaUrlResolver;
 use App\Service\TokenManager;
 use App\Service\UserRegistrationService;
+use App\Service\LoginAuthenticationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,6 +23,7 @@ class SecurityController extends AbstractController
 
     public function __construct(
         private UserRegistrationService $registrationService,
+        private LoginAuthenticationService $loginAuthService,
         private TokenManager $tokenManager,
         private MediaUrlResolver $mediaUrlResolver,
     ) {
@@ -58,31 +61,38 @@ class SecurityController extends AbstractController
     /**
      * Login with email and password
      * POST /api/login
-     * 
-     * The authentication is handled by Symfony's json_login firewall.
-     * If credentials are valid, the user is injected via #[CurrentUser].
      */
     #[Route('/login', name: 'api.login', methods: ['POST'])]
     public function login(
-        #[CurrentUser] ?User $user
+        #[MapRequestPayload] LoginPayload $payload
     ): JsonResponse {
-        // If we reach here without a user, authentication failed
-        if (!$user) {
-            return $this->errorJson('Email ou mot de passe incorrect', 401);
+        try {
+            // Authenticate and check if blocked
+            $user = $this->loginAuthService->authenticateAndCheckBlocked(
+                $payload->email,
+                $payload->password
+            );
+
+            // Generate access token for the authenticated user
+            $token = $this->tokenManager->generateForUser($user);
+
+            return $this->json([
+                'message' => 'Connexion réussie',
+                'token' => $token,
+                'user' => [
+                    'id' => $user->getId(),
+                    'email' => $user->getEmail(),
+                    'username' => $user->getUsername()
+                ]
+            ], 200);
+        } catch (\RuntimeException $e) {
+            // Distinguish between invalid credentials and blocked account
+            if (str_contains($e->getMessage(), 'bloqué')) {
+                return $this->errorJson($e->getMessage(), 403);
+            }
+            // Generic error for invalid credentials
+            return $this->errorJson($e->getMessage(), 401);
         }
-
-        // Generate access token for the authenticated user
-        $token = $this->tokenManager->generateForUser($user);
-
-        return $this->json([
-            'message' => 'Connexion réussie',
-            'token' => $token,
-            'user' => [
-                'id' => $user->getId(),
-                'email' => $user->getEmail(),
-                'username' => $user->getUsername()
-            ]
-        ], 200);
     }
 
     /**
