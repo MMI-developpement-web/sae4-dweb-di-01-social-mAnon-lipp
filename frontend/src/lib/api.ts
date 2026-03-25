@@ -143,6 +143,7 @@ export interface Tweet {
   id: number;
   content: string;
   createdAt: string;
+  updatedAt?: string;
   author: TweetAuthor;
   likeCount?: number;
   isLiked?: boolean;
@@ -222,6 +223,17 @@ export async function fetchCurrentUser(): Promise<User> {
 export async function deleteTweet(tweetId: number): Promise<{ message: string }> {
   return apiFetch<{ message: string }>(`/tweets/${tweetId}`, {
     method: "DELETE",
+  });
+}
+
+/**
+ * Update a tweet
+ * PUT /api/tweets/:id
+ */
+export async function updateTweet(tweetId: number, content: string, medias?: any[]): Promise<Tweet> {
+  return apiFetch<Tweet>(`/tweets/${tweetId}`, {
+    method: "PUT",
+    body: JSON.stringify({ content, medias }),
   });
 }
 

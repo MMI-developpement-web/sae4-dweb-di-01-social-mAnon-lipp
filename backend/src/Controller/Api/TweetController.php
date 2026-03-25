@@ -146,6 +146,28 @@ class TweetController extends AbstractController
     }
 
     /**
+     * Update a tweet (owner only)
+     * PUT /api/tweets/{id}
+     */
+    #[Route('/tweets/{id}', name: 'api.tweets.update', methods: ['PUT'])]
+    public function update(int $id, #[MapRequestPayload] TweetPayload $payload, #[CurrentUser] User $user): JsonResponse
+    {
+        $tweet = $this->tweetRepository->find($id);
+
+        if (!$tweet) {
+            return $this->errorJson('Tweet non trouvé', 404);
+        }
+
+        try {
+            $tweet = $this->tweetService->updateTweet($user, $tweet, trim($payload->content), $payload->medias);
+        } catch (\RuntimeException $e) {
+            return $this->errorJson('Vous n\'êtes pas autorisé à modifier ce tweet', 403);
+        }
+
+        return $this->json($tweet, 200, [], ['groups' => 'default']);
+    }
+
+    /**
      * Like a tweet
      * POST /api/tweets/{id}/like
      */

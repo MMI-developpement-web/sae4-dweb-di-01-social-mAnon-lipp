@@ -33,6 +33,27 @@ class TweetService
     }
 
     /**
+     * Update tweet if user is the author, otherwise throw
+     */
+    public function updateTweet(User $user, Tweet $tweet, string $content, ?array $medias = null): Tweet
+    {
+        if ($tweet->getAuthor()->getId() !== $user->getId()) {
+            throw new \RuntimeException('Not authorized');
+        }
+
+        $tweet->setContent($content);
+        $tweet->setUpdatedAt(new \DateTimeImmutable());
+        
+        if ($medias !== null) {
+            $tweet->setMedias($medias);
+        }
+
+        $this->em->flush();
+
+        return $tweet;
+    }
+
+    /**
      * Delete tweet if user is the author, otherwise throw
      */
     public function deleteTweet(User $user, Tweet $tweet): void

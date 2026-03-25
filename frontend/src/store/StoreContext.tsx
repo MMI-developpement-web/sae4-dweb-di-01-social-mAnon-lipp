@@ -195,10 +195,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateTweet = useCallback((tweetId: number, updates: Partial<Tweet>) => {
     setTweets((prev) => {
       const tweet = prev.get(tweetId);
-      if (!tweet) return prev;
-      
       const next = new Map(prev);
-      next.set(tweetId, { ...tweet, ...updates });
+      
+      if (tweet) {
+        // Merge with existing tweet
+        next.set(tweetId, { ...tweet, ...updates });
+      } else {
+        // If tweet doesn't exist in cache, add it (e.g., after modifying a tweet not in store)
+        next.set(tweetId, updates as Tweet);
+      }
+      
       return next;
     });
   }, []);
@@ -267,6 +273,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       throw err;
     }
   }, [removeTweet, clearError, setError]);
+
+  const modifyTweet = useCallback(
+    async (tweetId: number, content: string, medias?: any[]) => {
+      if (!currentUser) throw new Error('Not authenticated');
+      
+      try {
+        const { updateTweet: apiUpdateTweet } = await import('../lib/api');
+        const updatedTweet = await apiUpdateTweet(tweetId, content, medias);
+        updateTweet(tweetId, updatedTweet);
+        clearError('modifyTweet');
+        return updatedTweet;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to update tweet';
+        setError('modifyTweet', message);
+        throw err;
+      }
+    },
+    [currentUser, updateTweet, clearError, setError]
+  );
   
   // ═════════════════════════════════════════════════════════════════════════
   // ACTIONS: Likes
@@ -588,6 +613,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetchFeedTweets,
     createTweet,
     deleteTweet,
+    modifyTweet,
     likeTweet,
     unlikeTweet,
     isLiked,

@@ -28,6 +28,11 @@ export interface Tweet {
   createdAt: string;
   updatedAt?: string;
   isLiked?: boolean;
+  medias?: Array<{
+    url: string;
+    type: 'image' | 'video';
+    mimeType: string;
+  }>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,6 +118,11 @@ export interface StoreActions {
    * Delete a tweet from server and local cache
    */
   deleteTweet: (tweetId: number) => Promise<void>;
+
+  /**
+   * Update a tweet content on the server
+   */
+  modifyTweet: (tweetId: number, content: string, medias?: any[]) => Promise<Tweet>;
   
   // ─── Like actions ──────────────────────────────────────────────────────
   

@@ -9,4 +9,7 @@ class TweetPayload
     #[Assert\NotBlank(message: 'Le tweet ne peut pas être vide.', normalizer: 'trim')]
     #[Assert\Length(max: 280, maxMessage: 'Le tweet ne peut pas dépasser 280 caractères.')]
     public string $content;
+
+    #[Assert\Type(type: 'array', message: 'Les médias doivent être un tableau.')]
+    public ?array $medias = null;
 }
