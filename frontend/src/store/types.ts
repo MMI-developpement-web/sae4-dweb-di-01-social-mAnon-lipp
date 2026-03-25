@@ -67,6 +67,7 @@ export interface AppState {
   // Relationships
   followingUsers: Set<number>;        // IDs of users the current user follows
   likedTweets: Set<number>;           // IDs of tweets liked by current user
+  blockedUsers: Set<number>;          // IDs of users the current user has blocked
   
   // UI State
   isLoadingFeed: boolean;
@@ -197,6 +198,21 @@ export interface StoreActions {
    * Check if current user follows a user
    */
   isFollowing: (userId: number) => boolean;
+
+  /**
+   * Block a user from following and interacting
+   */
+  blockUser: (userId: number) => Promise<void>;
+
+  /**
+   * Unblock a user
+   */
+  unblockUser: (userId: number) => Promise<void>;
+
+  /**
+   * Check if current user has blocked a user
+   */
+  isBlocked: (userId: number) => boolean;
   
   // ─── Error handling ────────────────────────────────────────────────────
   

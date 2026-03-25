@@ -67,12 +67,17 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
   const [isDeleting, setIsDeleting] = useState(false);
   const [isModifying, setIsModifying] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
 
   // Load replies from tweet when component mounts or tweet changes
   useEffect(() => {
     if (tweet.replies && tweet.replies.length > 0) {
       setReplies(tweet.replies);
     }
+  }, [tweet.id]);
+
+  useEffect(() => {
+    setBlockedMessage(null);
   }, [tweet.id]);
 
   // Get the latest tweet from store (or use passed tweet)
@@ -109,8 +114,14 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
     try {
       await likeTweet(tweet.id);
       clearError('likeTweet');
-    } catch (error) {
-      console.error("Erreur lors du like:", error);
+      setBlockedMessage(null);
+    } catch (error: any) {
+      if (error?.status === 403) {
+        setBlockedMessage("Vous avez été bloqué par cet utilisateur");
+      } else {
+        console.error("Erreur lors du like:", error);
+        setBlockedMessage(null);
+      }
     } finally {
       setIsLiking(false);
     }
@@ -121,8 +132,14 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
     try {
       await unlikeTweet(tweet.id);
       clearError('unlikeTweet');
-    } catch (error) {
-      console.error("Erreur lors du unlike:", error);
+      setBlockedMessage(null);
+    } catch (error: any) {
+      if (error?.status === 403) {
+        setBlockedMessage("Vous avez été bloqué par cet utilisateur");
+      } else {
+        console.error("Erreur lors du unlike:", error);
+        setBlockedMessage(null);
+      }
     } finally {
       setIsLiking(false);
     }
@@ -306,11 +323,15 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
           </div>
 
           {/* Error display */}
-          {likeError && (
+          {blockedMessage ? (
+            <div className="text-red-500 text-xs mt-2">
+              {blockedMessage}
+            </div>
+          ) : likeError ? (
             <div className="text-red-500 text-xs mt-2">
               {likeError}
             </div>
-          )}
+          ) : null}
         </div>
       </article>
 

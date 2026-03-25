@@ -5,6 +5,8 @@ import NavBar from "../components/NavBar";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Checkbox from "../components/ui/Checkbox";
+import { useStore } from "../store/StoreContext";
+import Avatar from "../components/ui/Avatar";
 
 export function loader() {
   const token = localStorage.getItem("auth_token");
@@ -13,9 +15,11 @@ export function loader() {
 }
 
 export default function Settings() {
+  const { blockedUsers, unblockUser, userProfiles } = useStore();
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(60);
   const [saved, setSaved] = useState(false);
+  const [isUnblocking, setIsUnblocking] = useState<number | null>(null);
 
   useEffect(() => {
     const enabled = localStorage.getItem("auto_refresh_enabled") === "true";
@@ -29,6 +33,17 @@ export default function Settings() {
     localStorage.setItem("auto_refresh_interval", autoRefreshInterval.toString());
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleUnblock = async (userId: number) => {
+    setIsUnblocking(userId);
+    try {
+      await unblockUser(userId);
+    } catch (error) {
+      console.error("Erreur lors du déblocage:", error);
+    } finally {
+      setIsUnblocking(null);
+    }
   };
 
   return (
@@ -79,6 +94,55 @@ export default function Settings() {
             </Button>
             {saved && <p className="text-green-600 text-sm mt-2">✓ Paramètres enregistrés</p>}
           </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-border-muted p-6 mt-6">
+          <h2 className="text-lg font-semibold text-text mb-4">Utilisateurs bloqués</h2>
+          {blockedUsers.size === 0 ? (
+            <p className="text-text-muted text-sm">
+              Vous n'avez bloqué aucun utilisateur.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {Array.from(blockedUsers).map((userId) => {
+                const profile = userProfiles.get(userId);
+                return (
+                  <div
+                    key={userId}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-border-muted"
+                  >
+                    <div className="flex items-center gap-3">
+                      {profile && (
+                        <>
+                          <Avatar
+                            src={profile.profilePicture}
+                            alt={profile.username}
+                            size="sm"
+                          />
+                          <div>
+                            <p className="font-semibold text-text">{profile.username}</p>
+                            {profile.bio && (
+                              <p className="text-text-muted text-xs line-clamp-1">
+                                {profile.bio}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      onClick={() => handleUnblock(userId)}
+                      disabled={isUnblocking === userId}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {isUnblocking === userId ? "..." : "Débloquer"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </main>
       <NavBar />

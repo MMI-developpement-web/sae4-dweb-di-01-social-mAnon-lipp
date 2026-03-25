@@ -31,21 +31,25 @@ class TweetRepository extends ServiceEntityRepository
 
     /**
      * Feed tweets: current user's tweets + followed users' tweets.
+     * Excludes tweets from users who have blocked the current user.
      *
      * @return Tweet[]
      */
     public function findFeedForUser(int $userId, int $limit, int $offset): array
     {
-        return $this->createQueryBuilder('t')
+        $qb = $this->createQueryBuilder('t')
             ->leftJoin('t.author', 'author')
             ->leftJoin('author.followersUsers', 'follower')
+            // Exclude tweets from users who have blocked current user
+            ->leftJoin('author.blockedByUsers', 'blocker')
             ->andWhere('IDENTITY(t.author) = :userId OR follower.id = :userId')
+            ->andWhere('blocker.id != :userId OR blocker.id IS NULL')
             ->setParameter('userId', $userId)
             ->orderBy('t.createdAt', 'DESC')
             ->setMaxResults($limit)
-            ->setFirstResult($offset)
-            ->getQuery()
-            ->getResult();
+            ->setFirstResult($offset);
+
+        return $qb->getQuery()->getResult();
     }
 
     public function countFeedForUser(int $userId): int
@@ -54,7 +58,10 @@ class TweetRepository extends ServiceEntityRepository
             ->select('COUNT(DISTINCT t.id)')
             ->leftJoin('t.author', 'author')
             ->leftJoin('author.followersUsers', 'follower')
+            // Exclude tweets from users who have blocked current user
+            ->leftJoin('author.blockedByUsers', 'blocker')
             ->andWhere('IDENTITY(t.author) = :userId OR follower.id = :userId')
+            ->andWhere('blocker.id != :userId OR blocker.id IS NULL')
             ->setParameter('userId', $userId)
             ->getQuery()
             ->getSingleScalarResult();

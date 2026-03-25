@@ -27,6 +27,8 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     } catch (e) {
       errorData = { error: `HTTP ${res.status}` };
     }
+    // Include status code in error object
+    errorData.status = res.status;
     throw errorData;
   }
   return res.json() as Promise<T>;
@@ -278,6 +280,7 @@ export interface UserProfile {
   followerCount: number;
   followingCount: number;
   isFollowing: boolean;
+  isBlocked: boolean;
 }
 
 export interface UserProfileResponse {
@@ -306,6 +309,14 @@ export async function fetchUserTweets(userId: number, page = 1, perPage = 20): P
 }
 
 /**
+ * Fetch blocked users of current user
+ * GET /api/users/{id}/blocked
+ */
+export async function fetchBlockedUsers(userId: number): Promise<{ users: UserProfile[] }> {
+  return apiFetch<{ users: UserProfile[] }>(`/users/${userId}/blocked`);
+}
+
+/**
  * Follow a user
  * POST /api/users/:id/follow
  */
@@ -321,6 +332,33 @@ export async function followUser(userId: number): Promise<FollowResponse> {
  */
 export async function unfollowUser(userId: number): Promise<FollowResponse> {
   return apiFetch<FollowResponse>(`/users/${userId}/follow`, {
+    method: "DELETE",
+  });
+}
+
+// Block API
+
+export interface BlockResponse {
+  message: string;
+  isBlocked: boolean;
+}
+
+/**
+ * Block a user
+ * POST /api/users/:id/block
+ */
+export async function blockUser(userId: number): Promise<BlockResponse> {
+  return apiFetch<BlockResponse>(`/users/${userId}/block`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Unblock a user
+ * DELETE /api/users/:id/block
+ */
+export async function unblockUser(userId: number): Promise<BlockResponse> {
+  return apiFetch<BlockResponse>(`/users/${userId}/block`, {
     method: "DELETE",
   });
 }

@@ -96,6 +96,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Reply::class, mappedBy: 'author')]
     private Collection $replies;
 
+    /**
+     * @var Collection<int, self>
+     */
+    #[ORM\ManyToMany(targetEntity: self::class, inversedBy: 'blockedByUsers')]
+    #[ORM\JoinTable(name: 'user_blocked_users')]
+    private Collection $blockedUsers;
+
+    /**
+     * @var Collection<int, self>
+     */
+    #[ORM\ManyToMany(targetEntity: self::class, mappedBy: 'blockedUsers')]
+    private Collection $blockedByUsers;
+
     public function __construct()
     {
         $this->tokens = new ArrayCollection();
@@ -105,6 +118,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->followersUsers = new ArrayCollection();
         $this->likedTweets = new ArrayCollection();
         $this->replies = new ArrayCollection();
+        $this->blockedUsers = new ArrayCollection();
+        $this->blockedByUsers = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -442,6 +457,57 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             if ($reply->getAuthor() === $this) {
                 $reply->setAuthor(null);
             }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    public function getBlockedUsers(): Collection
+    {
+        return $this->blockedUsers;
+    }
+
+    public function addBlockedUser(self $blockedUser): static
+    {
+        if (!$this->blockedUsers->contains($blockedUser)) {
+            $this->blockedUsers->add($blockedUser);
+        }
+
+        return $this;
+    }
+
+    public function removeBlockedUser(self $blockedUser): static
+    {
+        $this->blockedUsers->removeElement($blockedUser);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    public function getBlockedByUsers(): Collection
+    {
+        return $this->blockedByUsers;
+    }
+
+    public function addBlockedByUser(self $blockedByUser): static
+    {
+        if (!$this->blockedByUsers->contains($blockedByUser)) {
+            $this->blockedByUsers->add($blockedByUser);
+            $blockedByUser->addBlockedUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBlockedByUser(self $blockedByUser): static
+    {
+        if ($this->blockedByUsers->removeElement($blockedByUser)) {
+            $blockedByUser->removeBlockedUser($this);
         }
 
         return $this;

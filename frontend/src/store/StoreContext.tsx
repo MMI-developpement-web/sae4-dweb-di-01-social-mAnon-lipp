@@ -12,7 +12,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User, Tweet, UserProfile, StoreContextType } from './types';
-import { apiFetch, fetchCurrentUser, updateProfile as apiUpdateProfile } from '../lib/api';
+import { apiFetch, fetchCurrentUser, updateProfile as apiUpdateProfile, blockUser as apiBlockUser, unblockUser as apiUnblockUser, fetchBlockedUsers } from '../lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create Context
@@ -42,6 +42,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ─── Relationships State ────────────────────────────────────────────────
   const [followingUsers, setFollowingUsers] = useState<Set<number>>(new Set());
   const [likedTweets, setLikedTweets] = useState<Set<number>>(new Set());
+  const [blockedUsers, setBlockedUsers] = useState<Set<number>>(new Set());
   
   // ─── UI State ───────────────────────────────────────────────────────────
   const [isLoadingFeed, setIsLoadingFeed] = useState(false);
@@ -67,6 +68,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const user = await fetchCurrentUser();
         setCurrentUserState(user);
         setAuthToken(token);
+
+        // Load blocked users for the current user
+        try {
+          const blockedResponse = await fetchBlockedUsers(user.id);
+          const blockedIds = new Set(blockedResponse.users.map(u => u.id));
+          setBlockedUsers(blockedIds);
+          // Also add them to userProfiles
+          blockedResponse.users.forEach(profile => {
+            setUserProfile(profile);
+          });
+        } catch (error) {
+          console.error('Error loading blocked users:', error);
+        }
       } catch (error) {
         // If token is invalid, clear it
         localStorage.removeItem('auth_token');
@@ -94,6 +108,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setUserProfiles(new Map());
           setFollowingUsers(new Set());
           setLikedTweets(new Set());
+          setBlockedUsers(new Set());
         }
       }
     };
@@ -313,7 +328,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         await apiFetch(`/tweets/${tweetId}/like`, { method: 'POST' });
         clearError('likeTweet');
-      } catch (err) {
+      } catch (err: any) {
         // Revert optimistic update
         if (!wasLiked) {
           setLikedTweets((prev) => {
@@ -326,8 +341,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updateTweet(tweetId, { likeCount: tweet.likeCount });
         }
         
-        const message = err instanceof Error ? err.message : 'Failed to like tweet';
-        setError('likeTweet', message);
+        // Don't add error to store for 403 (blocked user) - handled in component
+        if (err?.status !== 403) {
+          const message = err instanceof Error ? err.message : 'Failed to like tweet';
+          setError('likeTweet', message);
+        }
         throw err;
       }
     },
@@ -354,7 +372,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         await apiFetch(`/tweets/${tweetId}/like`, { method: 'DELETE' });
         clearError('unlikeTweet');
-      } catch (err) {
+      } catch (err: any) {
         // Revert optimistic update
         if (wasLiked) {
           setLikedTweets((prev) => new Set(prev).add(tweetId));
@@ -363,8 +381,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updateTweet(tweetId, { likeCount: tweet.likeCount });
         }
         
-        const message = err instanceof Error ? err.message : 'Failed to unlike tweet';
-        setError('unlikeTweet', message);
+        // Don't add error to store for 403 (blocked user) - handled in component
+        if (err?.status !== 403) {
+          const message = err instanceof Error ? err.message : 'Failed to unlike tweet';
+          setError('unlikeTweet', message);
+        }
         throw err;
       }
     },
@@ -531,6 +552,99 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isFollowing = useCallback((userId: number) => {
     return followingUsers.has(userId);
   }, [followingUsers]);
+
+  // ACTIONS: Block
+  // ═════════════════════════════════════════════════════════════════════════
+
+  const blockUser = useCallback(
+    async (userId: number) => {
+      if (!currentUser) throw new Error('Not authenticated');
+
+      // Optimistic update
+      const wasBlocked = blockedUsers.has(userId);
+      setBlockedUsers((prev) => new Set(prev).add(userId));
+
+      const profile = userProfiles.get(userId);
+      if (profile) {
+        setUserProfile({
+          ...profile,
+          isBlocked: true,
+        });
+      }
+
+      try {
+        await apiBlockUser(userId);
+        clearError('blockUser');
+      } catch (err) {
+        // Revert optimistic update
+        if (!wasBlocked) {
+          setBlockedUsers((prev) => {
+            const next = new Set(prev);
+            next.delete(userId);
+            return next;
+          });
+        }
+        if (profile) {
+          setUserProfile({
+            ...profile,
+            isBlocked: false,
+          });
+        }
+
+        const message = err instanceof Error ? err.message : 'Failed to block user';
+        setError('blockUser', message);
+        throw err;
+      }
+    },
+    [currentUser, blockedUsers, userProfiles, setUserProfile, clearError, setError]
+  );
+
+  const unblockUser = useCallback(
+    async (userId: number) => {
+      if (!currentUser) throw new Error('Not authenticated');
+
+      // Optimistic update
+      const wasBlocked = blockedUsers.has(userId);
+      setBlockedUsers((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+
+      const profile = userProfiles.get(userId);
+      if (profile) {
+        setUserProfile({
+          ...profile,
+          isBlocked: false,
+        });
+      }
+
+      try {
+        await apiUnblockUser(userId);
+        clearError('unblockUser');
+      } catch (err) {
+        // Revert optimistic update
+        if (wasBlocked) {
+          setBlockedUsers((prev) => new Set(prev).add(userId));
+        }
+        if (profile) {
+          setUserProfile({
+            ...profile,
+            isBlocked: true,
+          });
+        }
+
+        const message = err instanceof Error ? err.message : 'Failed to unblock user';
+        setError('unblockUser', message);
+        throw err;
+      }
+    },
+    [currentUser, blockedUsers, userProfiles, setUserProfile, clearError, setError]
+  );
+
+  const isBlocked = useCallback((userId: number) => {
+    return blockedUsers.has(userId);
+  }, [blockedUsers]);
   
   // ═════════════════════════════════════════════════════════════════════════
   // ACTIONS: Update Current User Profile
@@ -598,6 +712,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     userProfiles,
     followingUsers,
     likedTweets,
+    blockedUsers,
     isLoadingFeed,
     isLoadingProfile,
     feedPage,
@@ -625,6 +740,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     followUser,
     unfollowUser,
     isFollowing,
+    blockUser,
+    unblockUser,
+    isBlocked,
     setError,
     clearError,
     clearAllErrors,

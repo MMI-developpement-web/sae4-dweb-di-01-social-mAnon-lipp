@@ -5,7 +5,9 @@ namespace App\Controller\Api;
 use App\Dto\Payload\CreateReplyPayload;
 use App\Entity\User;
 use App\Repository\ReplyRepository;
+use App\Repository\TweetRepository;
 use App\Service\ReplyService;
+use App\Service\BlockService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -22,6 +24,8 @@ class ReplyController extends AbstractController
     public function __construct(
         private ReplyService $replyService,
         private ReplyRepository $replyRepository,
+        private TweetRepository $tweetRepository,
+        private BlockService $blockService,
     ) {
     }
 
@@ -36,6 +40,16 @@ class ReplyController extends AbstractController
         #[CurrentUser] User $user,
     ): JsonResponse
     {
+        $tweet = $this->tweetRepository->find($tweetId);
+        if (!$tweet) {
+            return $this->errorJson('Tweet non trouvé', 404);
+        }
+
+        // Check if user is blocked by tweet author
+        if ($this->blockService->isBlockedBy($user, $tweet->getAuthor())) {
+            return $this->errorJson('Vous avez été bloqué par cet utilisateur', 403);
+        }
+
         try {
             $reply = $this->replyService->createReply($user, $payload->content, $tweetId);
             return $this->json($reply, 201, [], ['groups' => 'default']);

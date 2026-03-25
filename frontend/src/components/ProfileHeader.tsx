@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { followUser, unfollowUser, type UserProfile } from "../lib/api";
+import { useStore } from "../store/StoreContext";
 import Button from "./ui/Button";
 import Avatar from "./ui/Avatar";
+import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
 interface ProfileHeaderProps {
   user: UserProfile;
@@ -14,13 +16,17 @@ export default function ProfileHeader({
   isOwnProfile,
   onFollowChange,
 }: ProfileHeaderProps) {
+  const { blockUser: storeBlockUser, unblockUser: storeUnblockUser, isBlocked } = useStore();
   const [isFollowing, setIsFollowing] = useState(user.isFollowing);
+  const [blocked, setBlocked] = useState(user.isBlocked);
   const [isLoading, setIsLoading] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
 
   // Sync state when user data changes from API
   useEffect(() => {
     setIsFollowing(user.isFollowing);
-  }, [user.id, user.isFollowing]);
+    setBlocked(user.isBlocked);
+  }, [user.id, user.isFollowing, user.isBlocked]);
 
   const handleFollowClick = async () => {
     setIsLoading(true);
@@ -38,6 +44,30 @@ export default function ProfileHeader({
       }
     } catch (error) {
       console.error("Follow error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBlockClick = async () => {
+    setIsLoading(true);
+    try {
+      if (blocked) {
+        await storeUnblockUser(user.id);
+        setBlocked(false);
+      } else {
+        await storeBlockUser(user.id);
+        setBlocked(true);
+      }
+      
+      setShowBlockConfirm(false);
+      
+      // Refresh profile data
+      if (onFollowChange) {
+        await onFollowChange();
+      }
+    } catch (error) {
+      console.error("Block error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -110,18 +140,43 @@ export default function ProfileHeader({
         </div>
       </div>
 
-      {/* Follow Button */}
+      {/* Follow & Block Buttons */}
       {!isOwnProfile && (
-        <Button
-          onClick={handleFollowClick}
-          disabled={isLoading}
-          variant={isFollowing ? "outline" : "primary"}
-          size="sm"
-          className="w-fit"
-        >
-          {isLoading ? "..." : isFollowing ? "Ne plus suivre" : "S'abonner"}
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            onClick={handleFollowClick}
+            disabled={isLoading}
+            variant={isFollowing ? "outline" : "primary"}
+            size="sm"
+            className="flex-1"
+          >
+            {isLoading ? "..." : isFollowing ? "Ne plus suivre" : "S'abonner"}
+          </Button>
+          <Button
+            onClick={() => setShowBlockConfirm(true)}
+            disabled={isLoading}
+            variant="danger"
+            size="sm"
+            className="flex-1"
+          >
+            {blocked ? "Débloquer" : "Bloquer"}
+          </Button>
+        </div>
       )}
+
+      {/* Block Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showBlockConfirm}
+        title={blocked ? "Débloquer l'utilisateur" : "Bloquer l'utilisateur"}
+        message={
+          blocked
+            ? `Êtes-vous sûr de vouloir débloquer ${user.username} ? Il pourra à nouveau vous suivre et accéder à vos messages.`
+            : `Êtes-vous sûr de vouloir bloquer ${user.username} ? Il ne pourra pas vous suivre ni accéder à vos messages.`
+        }
+        onConfirm={handleBlockClick}
+        onCancel={() => setShowBlockConfirm(false)}
+        isLoading={isLoading}
+      />
     </article>
   );
 }

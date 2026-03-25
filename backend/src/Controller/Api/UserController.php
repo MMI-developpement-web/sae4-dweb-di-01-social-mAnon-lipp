@@ -6,6 +6,7 @@ use App\Dto\Payload\UpdateProfilePayload;
 use App\Entity\User;
 use App\Repository\TweetRepository;
 use App\Service\FollowService;
+use App\Service\BlockService;
 use App\Service\UpdateProfileService;
 use App\Resolver\MediaUrlResolver;
 use App\Resolver\PaginationResolver;
@@ -30,6 +31,7 @@ class UserController extends AbstractController
         private UserVisibilityResolver $userVisibilityResolver,
         private TweetRepository $tweetRepository,
         private FollowService $followService,
+        private BlockService $blockService,
         private PaginationResolver $paginationResolver,
         private MediaUrlResolver $mediaUrlResolver,
         private TweetApiFormatter $tweetApiFormatter,
@@ -52,10 +54,12 @@ class UserController extends AbstractController
         }
 
         $isFollowing = false;
+        $isBlocked = false;
         $followerCount = $this->followService->getFollowerCount($targetUser);
         $followingCount = $this->followService->getFollowingCount($targetUser);
         if ($currentUser instanceof User) {
             $isFollowing = $this->followService->isFollowing($currentUser, $targetUser);
+            $isBlocked = $this->blockService->isBlocked($currentUser, $targetUser);
         }
 
         return $this->json([
@@ -71,6 +75,7 @@ class UserController extends AbstractController
                 'followerCount' => $followerCount,
                 'followingCount' => $followingCount,
                 'isFollowing' => $isFollowing,
+                'isBlocked' => $isBlocked,
             ],
         ], 200);
     }
@@ -130,6 +135,11 @@ class UserController extends AbstractController
             return $this->errorJson('Non authentifié', 401);
         }
 
+        // Check if blocked by target user
+        if ($this->blockService->isBlockedBy($currentUser, $targetUser)) {
+            return $this->errorJson('Vous avez été bloqué par cet utilisateur', 403);
+        }
+
         try {
             $this->followService->follow($currentUser, $targetUser);
         } catch (\RuntimeException $e) {
@@ -164,6 +174,96 @@ class UserController extends AbstractController
         return $this->json([
             'message' => 'Vous ne suivez plus cet utilisateur',
             'isFollowing' => false,
+        ], 200);
+    }
+
+    /**
+     * Block a user
+     * POST /api/users/{id}/block
+     */
+    #[Route('/users/{id}/block', name: 'api.users.block', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function block(int $id, #[CurrentUser] User $currentUser): JsonResponse
+    {
+        $targetUser = $this->userVisibilityResolver->findVisibleById($id);
+        if ($targetUser === null) {
+            return $this->errorJson('Utilisateur non trouvé', 404);
+        }
+        if (!$currentUser instanceof User) {
+            return $this->errorJson('Non authentifié', 401);
+        }
+
+        try {
+            $this->blockService->block($currentUser, $targetUser);
+        } catch (\RuntimeException $e) {
+            return $this->errorJson($e->getMessage(), 400);
+        }
+
+        return $this->json([
+            'message' => 'Utilisateur bloqué avec succès',
+            'isBlocked' => true,
+        ], 201);
+    }
+
+    /**
+     * Unblock a user
+     * DELETE /api/users/{id}/block
+     */
+    #[Route('/users/{id}/block', name: 'api.users.unblock', methods: ['DELETE'])]
+    #[IsGranted('ROLE_USER')]
+    public function unblock(int $id, #[CurrentUser] User $currentUser): JsonResponse
+    {
+        $targetUser = $this->userVisibilityResolver->findVisibleById($id);
+        if ($targetUser === null) {
+            return $this->errorJson('Utilisateur non trouvé', 404);
+        }
+        if (!$currentUser instanceof User) {
+            return $this->errorJson('Non authentifié', 401);
+        }
+
+        $this->blockService->unblock($currentUser, $targetUser);
+
+        return $this->json([
+            'message' => 'Utilisateur débloqué avec succès',
+            'isBlocked' => false,
+        ], 200);
+    }
+
+    /**
+     * Get blocked users for current user
+     * GET /api/users/{id}/blocked
+     */
+    #[Route('/users/{id}/blocked', name: 'api.users.blocked', methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
+    public function blocked(int $id, #[CurrentUser] User $currentUser): JsonResponse
+    {
+        // Only allow users to get their own blocked list
+        if ($currentUser->getId() !== $id) {
+            return $this->errorJson('Vous pouvez seulement voir votre propre liste de bloqués', 403);
+        }
+
+        $blockedUsers = $currentUser->getBlockedUsers();
+        
+        $formattedUsers = [];
+        foreach ($blockedUsers as $user) {
+            $formattedUsers[] = [
+                'id' => $user->getId(),
+                'email' => $user->getEmail(),
+                'username' => $user->getUsername(),
+                'bio' => $user->getBio(),
+                'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($user->getProfilePicture()),
+                'bannerPicture' => $this->mediaUrlResolver->resolveUploadPath($user->getBannerPicture()),
+                'location' => $user->getLocation(),
+                'website' => $user->getWebsite(),
+                'followerCount' => $this->followService->getFollowerCount($user),
+                'followingCount' => $this->followService->getFollowingCount($user),
+                'isFollowing' => false,
+                'isBlocked' => true,
+            ];
+        }
+
+        return $this->json([
+            'users' => $formattedUsers,
         ], 200);
     }
 

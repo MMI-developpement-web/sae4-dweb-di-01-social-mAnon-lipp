@@ -11,6 +11,7 @@ use App\Service\TweetApiFormatter;
 use App\Service\TweetService;
 use App\Service\TweetUploadService;
 use App\Service\LikeService;
+use App\Service\BlockService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,6 +34,7 @@ class TweetController extends AbstractController
         private TweetUploadService $tweetUploadService,
         private MediaUrlResolver $mediaUrlResolver,
         private LikeService $likeService,
+        private BlockService $blockService,
     ) {
     }
 
@@ -180,6 +182,11 @@ class TweetController extends AbstractController
             return $this->errorJson('Tweet non trouvé', 404);
         }
 
+        // Check if user is blocked by tweet author
+        if ($this->blockService->isBlockedBy($user, $tweet->getAuthor())) {
+            return $this->errorJson('Vous avez été bloqué par cet utilisateur', 403);
+        }
+
         try {
             $this->likeService->like($user, $tweet);
         } catch (\RuntimeException $e) {
@@ -203,6 +210,11 @@ class TweetController extends AbstractController
 
         if (!$tweet) {
             return $this->errorJson('Tweet non trouvé', 404);
+        }
+
+        // Check if user is blocked by tweet author
+        if ($this->blockService->isBlockedBy($user, $tweet->getAuthor())) {
+            return $this->errorJson('Vous avez été bloqué par cet utilisateur', 403);
         }
 
         try {
