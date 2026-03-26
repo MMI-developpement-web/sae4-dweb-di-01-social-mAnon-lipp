@@ -13,6 +13,7 @@ use App\Resolver\PaginationResolver;
 use App\Service\TweetApiFormatter;
 use App\Resolver\UserVisibilityResolver;
 use App\Trait\ParseMultipartTrait;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -36,6 +37,7 @@ class UserController extends AbstractController
         private MediaUrlResolver $mediaUrlResolver,
         private TweetApiFormatter $tweetApiFormatter,
         private UpdateProfileService $updateProfileService,
+        private EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -349,5 +351,33 @@ class UserController extends AbstractController
             error_log("ERROR in update profile: " . $e->getMessage());
             return $this->errorJson('Erreur lors de la mise à jour: ' . $e->getMessage(), 400);
         }
+    }
+
+    /**
+     * Update user's read-only setting
+     * PATCH /api/users/{id}/read-only
+     */
+    #[Route('/users/{id}/read-only', name: 'api.users.read_only', methods: ['PATCH'])]
+    #[IsGranted('ROLE_USER')]
+    public function updateReadOnly(
+        int $id,
+        #[CurrentUser] User $currentUser,
+        Request $request,
+    ): JsonResponse {
+        // Only allow users to update their own read-only setting
+        if ($currentUser->getId() !== $id) {
+            return $this->errorJson('Vous ne pouvez modifier que votre propre paramètre', 403);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $readOnly = isset($data['readOnly']) ? (bool) $data['readOnly'] : false;
+
+        $currentUser->setReadOnly($readOnly);
+        $this->entityManager->flush();
+
+        return $this->json([
+            'readOnly' => $currentUser->getReadOnly(),
+            'message' => 'Mode lecture seule ' . ($readOnly ? 'activé' : 'désactivé'),
+        ], 200);
     }
 }

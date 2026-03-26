@@ -109,11 +109,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\ManyToMany(targetEntity: self::class, mappedBy: 'blockedUsers')]
     private Collection $blockedByUsers;
 
+    #[ORM\Column]
+    #[Groups(['default'])]
+    private bool $readOnly = false;
+
     public function __construct()
     {
         $this->tokens = new ArrayCollection();
         $this->tweets = new ArrayCollection();
         $this->isBlocked = false;
+        $this->readOnly = false;
         $this->followingUsers = new ArrayCollection();
         $this->followersUsers = new ArrayCollection();
         $this->likedTweets = new ArrayCollection();
@@ -509,6 +514,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         if ($this->blockedByUsers->removeElement($blockedByUser)) {
             $blockedByUser->removeBlockedUser($this);
         }
+
+        return $this;
+    }
+
+    public function getReadOnly(): bool
+    {
+        return $this->readOnly;
+    }
+
+    public function setReadOnly(bool $readOnly): static
+    {
+        $this->readOnly = $readOnly;
 
         return $this;
     }

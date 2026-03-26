@@ -45,6 +45,11 @@ class ReplyController extends AbstractController
             return $this->errorJson('Tweet non trouvé', 404);
         }
 
+        // Check if tweet author has read-only mode enabled
+        if ($tweet->getAuthor()->getReadOnly()) {
+            return $this->errorJson('Les commentaires sont désactivés pour ce compte', 403);
+        }
+
         // Check if user is blocked by tweet author
         if ($this->blockService->isBlockedBy($user, $tweet->getAuthor())) {
             return $this->errorJson('Vous avez été bloqué par cet utilisateur', 403);

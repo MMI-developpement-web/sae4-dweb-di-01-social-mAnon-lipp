@@ -7,6 +7,7 @@ import Input from "../components/ui/Input";
 import Checkbox from "../components/ui/Checkbox";
 import { useStore } from "../store/StoreContext";
 import Avatar from "../components/ui/Avatar";
+import { updateReadOnly } from "../lib/api";
 
 export function loader() {
   const token = localStorage.getItem("auth_token");
@@ -15,10 +16,13 @@ export function loader() {
 }
 
 export default function Settings() {
-  const { blockedUsers, unblockUser, userProfiles } = useStore();
+  const { currentUser, blockedUsers, unblockUser, userProfiles } = useStore();
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(60);
+  const [readOnly, setReadOnly] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [isUnblocking, setIsUnblocking] = useState<number | null>(null);
 
   useEffect(() => {
@@ -26,13 +30,35 @@ export default function Settings() {
     const interval = parseInt(localStorage.getItem("auto_refresh_interval") || "60", 10);
     setAutoRefreshEnabled(enabled);
     setAutoRefreshInterval(interval);
-  }, []);
+    
+    if (currentUser) {
+      setReadOnly(currentUser.readOnly ?? false);
+    }
+  }, [currentUser]);
 
-  const handleSave = () => {
+  const handleSaveRefresh = () => {
     localStorage.setItem("auto_refresh_enabled", autoRefreshEnabled ? "true" : "false");
     localStorage.setItem("auto_refresh_interval", autoRefreshInterval.toString());
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleReadOnlyChange = async (enabled: boolean) => {
+    if (!currentUser) return;
+    
+    setIsSaving(true);
+    setError("");
+    try {
+      await updateReadOnly(currentUser.id, enabled);
+      setReadOnly(enabled);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError("Erreur lors de la mise à jour du mode lecture seule");
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleUnblock = async (userId: number) => {
@@ -53,6 +79,32 @@ export default function Settings() {
         <h1 className="text-2xl font-bold text-text mb-6">Paramètres</h1>
 
         <div className="bg-white rounded-lg border border-border-muted p-6">
+          <h2 className="text-lg font-semibold text-text mb-4">Confidentialité du compte</h2>
+
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="read_only"
+                checked={readOnly}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReadOnlyChange(e.target.checked)}
+                disabled={isSaving}
+              />
+              <div className="flex-1">
+                <label htmlFor="read_only" className="text-text cursor-pointer font-medium">
+                  Compte en lecture seule
+                </label>
+                <p className="text-text-muted text-sm mt-1">
+                  Lorsqu'activé, personne ne pourra commenter ou répondre à vos tweets
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {error && <p className="text-red-600 text-sm mt-2">⚠️ {error}</p>}
+          {saved && <p className="text-green-600 text-sm mt-2">✓ Paramètres enregistrés</p>}
+        </div>
+
+        <div className="bg-white rounded-lg border border-border-muted p-6 mt-6">
           <h2 className="text-lg font-semibold text-text mb-4">Rafraîchissement du fil</h2>
 
           <div className="space-y-4">
@@ -89,10 +141,9 @@ export default function Settings() {
           </div>
 
           <div className="mt-6">
-            <Button onClick={handleSave} variant="primary">
+            <Button onClick={handleSaveRefresh} variant="primary">
               Enregistrer
             </Button>
-            {saved && <p className="text-green-600 text-sm mt-2">✓ Paramètres enregistrés</p>}
           </div>
         </div>
 

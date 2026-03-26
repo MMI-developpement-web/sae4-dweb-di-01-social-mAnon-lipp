@@ -27,8 +27,8 @@ class ReplyService
         $reply->setContent(trim($content));
         $reply->setAuthor($author);
         $reply->setTweet($tweet);
-        $reply->setCreatedAt(new \DateTimeImmutable());
-
+        $reply->setCreatedAt(new \DateTimeImmutable());        
+        $reply->setIsCensored(false);
         $this->entityManager->persist($reply);
         $this->entityManager->flush();
 

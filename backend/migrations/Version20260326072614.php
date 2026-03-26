@@ -10,25 +10,22 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Auto-generated Migration: Please modify to your needs!
  */
-final class Version20260325140000 extends AbstractMigration
+final class Version20260326072614 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Add is_censored column to reply table';
+        return '';
     }
 
     public function up(Schema $schema): void
     {
-        // Check if column already exists to avoid duplicate column error
-        $table = $schema->getTable('reply');
-        if (!$table->hasColumn('is_censored')) {
-            $this->addSql('ALTER TABLE reply ADD is_censored TINYINT NOT NULL DEFAULT 0');
-        }
+        // this up() migration is auto-generated, please modify it to your needs
+        $this->addSql('ALTER TABLE user ADD read_only TINYINT NOT NULL');
     }
 
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE reply DROP is_censored');
+        $this->addSql('ALTER TABLE `user` DROP read_only');
     }
 }

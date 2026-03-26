@@ -179,6 +179,7 @@ export interface User {
   bannerPicture?: string;
   location?: string;
   website?: string;
+  readOnly?: boolean;
 }
 
 interface RawCurrentUserResponse extends User {
@@ -281,6 +282,7 @@ export interface UserProfile {
   followingCount: number;
   isFollowing: boolean;
   isBlocked: boolean;
+  readOnly?: boolean;
 }
 
 export interface UserProfileResponse {
@@ -400,15 +402,6 @@ export async function updateProfile(
     if (profilePicture) formData.append('profilePicture', profilePicture);
     if (bannerPicture) formData.append('bannerPicture', bannerPicture);
     
-    // Debug logging
-    console.log('🔍 DEBUG updateProfile:', {
-      bio: data.bio?.substring(0, 20),
-      website: data.website?.substring(0, 20),
-      location: data.location?.substring(0, 20),
-      profilePicture: profilePicture ? `File(${profilePicture.name}, ${profilePicture.size} bytes)` : undefined,
-      bannerPicture: bannerPicture ? `File(${bannerPicture.name}, ${bannerPicture.size} bytes)` : undefined,
-      formDataEntries: Array.from(formData.entries()).map(([k, v]) => `${k}: ${v instanceof File ? `File(${v.name})` : v}`),
-    });
     
     return apiFetchFormData<UpdateProfileResponse>(`/users/${userId}`, {
       method: "PUT",
@@ -427,6 +420,17 @@ export async function updateProfile(
   return apiFetch<UpdateProfileResponse>(`/users/${userId}`, {
     method: "PUT",
     body: JSON.stringify(normalizedData),
+  });
+}
+
+/**
+ * Update user's read-only setting
+ * PATCH /api/users/:id/read-only
+ */
+export async function updateReadOnly(userId: number, readOnly: boolean): Promise<{ readOnly: boolean; message: string }> {
+  return apiFetch<{ readOnly: boolean; message: string }>(`/users/${userId}/read-only`, {
+    method: "PATCH",
+    body: JSON.stringify({ readOnly }),
   });
 }
 
