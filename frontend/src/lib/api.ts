@@ -303,6 +303,14 @@ export async function fetchUserProfile(userId: number): Promise<UserProfileRespo
 }
 
 /**
+ * Fetch user profile by username
+ * GET /api/users/by-username/:username
+ */
+export async function fetchUserByUsername(username: string): Promise<UserProfileResponse> {
+  return apiFetch<UserProfileResponse>(`/users/by-username/${username}`);
+}
+
+/**
  * Fetch user's tweets
  * GET /api/users/:id/tweets?page=1&per_page=20
  */

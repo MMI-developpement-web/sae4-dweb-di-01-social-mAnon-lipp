@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { getImageUrl } from "../../lib/utils";
+import { renderTweetContent } from "../../lib/parseTweet";
 import { useStore } from "../../store/StoreContext";
 import type { Tweet, Reply } from "../../lib/api";
 import Avatar from "./Avatar";
@@ -259,7 +260,7 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
 
           {/* Tweet content */}
           <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
-            {currentTweet.content}
+            {renderTweetContent(currentTweet.content)}
           </p>
 
           {/* Media gallery */}

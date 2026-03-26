@@ -83,6 +83,46 @@ class UserController extends AbstractController
     }
 
     /**
+     * Get user profile by username
+     * GET /api/users/by-username/{username}
+     */
+    #[Route('/users/by-username/{username}', name: 'api.users.show_by_username', methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
+    public function showByUsername(string $username, #[CurrentUser] User $currentUser): JsonResponse
+    {
+        $targetUser = $this->userVisibilityResolver->findVisibleByUsername($username);
+        if ($targetUser === null) {
+            return $this->errorJson('Utilisateur non trouvé', 404);
+        }
+
+        $isFollowing = false;
+        $isBlocked = false;
+        $followerCount = $this->followService->getFollowerCount($targetUser);
+        $followingCount = $this->followService->getFollowingCount($targetUser);
+        if ($currentUser instanceof User) {
+            $isFollowing = $this->followService->isFollowing($currentUser, $targetUser);
+            $isBlocked = $this->blockService->isBlocked($currentUser, $targetUser);
+        }
+
+        return $this->json([
+            'user' => [
+                'id' => $targetUser->getId(),
+                'email' => $targetUser->getEmail(),
+                'username' => $targetUser->getUsername(),
+                'bio' => $targetUser->getBio(),
+                'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($targetUser->getProfilePicture()),
+                'bannerPicture' => $this->mediaUrlResolver->resolveUploadPath($targetUser->getBannerPicture()),
+                'location' => $targetUser->getLocation(),
+                'website' => $targetUser->getWebsite(),
+                'followerCount' => $followerCount,
+                'followingCount' => $followingCount,
+                'isFollowing' => $isFollowing,
+                'isBlocked' => $isBlocked,
+            ],
+        ], 200);
+    }
+
+    /**
      * Get user's tweets
      * GET /api/users/{id}/tweets?page=1&per_page=20
      */

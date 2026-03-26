@@ -24,4 +24,15 @@ class UserVisibilityResolver
 
         return $user;
     }
+
+    public function findVisibleByUsername(string $username): ?User
+    {
+        $user = $this->userRepository->findOneBy(['username' => $username]);
+
+        if ($user === null || $this->blockedAccountService->isUserBlocked($user)) {
+            return null;
+        }
+
+        return $user;
+    }
 }

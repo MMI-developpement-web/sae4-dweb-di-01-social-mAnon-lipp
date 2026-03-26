@@ -21,6 +21,7 @@ class TweetService
         $tweet->setContent($content);
         $tweet->setCreatedAt(new \DateTimeImmutable());
         $tweet->setAuthor($author);
+        $tweet->setIsCensored(false);
         
         if ($medias !== null) {
             $tweet->setMedias($medias);
