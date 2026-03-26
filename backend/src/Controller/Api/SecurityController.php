@@ -148,6 +148,7 @@ class SecurityController extends AbstractController
             'bannerPicture' => $this->mediaUrlResolver->resolveUploadPath($user->getBannerPicture()),
             'location' => $user->getLocation(),
             'website' => $user->getWebsite(),
+            'readOnly' => $user->getReadOnly(),
         ], 200, [], ['groups' => 'default']);
     }
 

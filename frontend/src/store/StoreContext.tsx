@@ -156,6 +156,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setFollowingUsers(new Set());
   }, []);
   
+  const updateCurrentUser = useCallback((updates: Partial<User>) => {
+    setCurrentUserState((prev) => {
+      if (!prev) return prev;
+      return { ...prev, ...updates };
+    });
+  }, []);
+  
   const clearAuth = useCallback(() => {
     setCurrentUserState(null);
     setAuthToken(null);
@@ -720,6 +727,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     // Actions
     setCurrentUser,
+    updateCurrentUser,
     clearAuth,
     initializeAuth,
     addTweet,

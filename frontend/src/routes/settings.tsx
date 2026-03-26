@@ -16,7 +16,7 @@ export function loader() {
 }
 
 export default function Settings() {
-  const { currentUser, blockedUsers, unblockUser, userProfiles } = useStore();
+  const { currentUser, blockedUsers, unblockUser, userProfiles, updateCurrentUser } = useStore();
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(60);
   const [readOnly, setReadOnly] = useState(false);
@@ -51,6 +51,8 @@ export default function Settings() {
     try {
       await updateReadOnly(currentUser.id, enabled);
       setReadOnly(enabled);
+      // ✅ Met à jour le Store global
+      updateCurrentUser({ readOnly: enabled });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {

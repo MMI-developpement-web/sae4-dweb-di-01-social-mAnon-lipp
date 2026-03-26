@@ -91,6 +91,11 @@ export interface StoreActions {
   setCurrentUser: (user: User, token: string) => void;
   
   /**
+   * Update specific fields of the current user
+   */
+  updateCurrentUser: (updates: Partial<User>) => void;
+  
+  /**
    * Clear auth state (logout)
    */
   clearAuth: () => void;
