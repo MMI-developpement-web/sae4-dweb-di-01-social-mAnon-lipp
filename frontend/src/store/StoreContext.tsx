@@ -12,7 +12,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User, Tweet, UserProfile, StoreContextType } from './types';
-import { apiFetch, fetchCurrentUser, updateProfile as apiUpdateProfile, blockUser as apiBlockUser, unblockUser as apiUnblockUser, fetchBlockedUsers } from '../lib/api';
+import { apiFetch, fetchCurrentUser, updateProfile as apiUpdateProfile, blockUser as apiBlockUser, unblockUser as apiUnblockUser, fetchBlockedUsers, pinTweet as apiPinTweet, unpinTweet as apiUnpinTweet } from '../lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create Context
@@ -200,7 +200,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addTweet = useCallback((tweet: Tweet) => {
     setTweets((prev) => {
       const next = new Map(prev);
-      next.set(tweet.id, tweet);
+      const existing = prev.get(tweet.id);
+      
+      // If tweet exists, merge with preserved local state (isPinned)
+      if (existing) {
+        next.set(tweet.id, {
+          ...tweet,
+          isPinned: existing.isPinned, // Keep local pin state
+        });
+      } else {
+        next.set(tweet.id, tweet);
+      }
+      
       return next;
     });
   }, []);
@@ -412,6 +423,71 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     setLikedTweets(liked);
   }, []);
+  
+  // ═════════════════════════════════════════════════════════════════════════
+  // ACTIONS: Pin/Unpin
+  // ═════════════════════════════════════════════════════════════════════════
+  
+  const pinTweet = useCallback(
+    async (tweetId: number) => {
+      if (!currentUser) throw new Error('Not authenticated');
+      
+      // Get current tweet
+      const tweet = tweets.get(tweetId);
+      if (!tweet) throw new Error('Tweet not found in store');
+      
+      // Unpin all other tweets from current user
+      const updatedTweets = new Map(tweets);
+      updatedTweets.forEach((t) => {
+        if (t.author.id === currentUser.id && t.id !== tweetId && t.isPinned) {
+          updatedTweets.set(t.id, { ...t, isPinned: false });
+        }
+      });
+      
+      // Pin this tweet
+      updatedTweets.set(tweetId, { ...tweet, isPinned: true });
+      setTweets(updatedTweets);
+      
+      try {
+        const updatedTweet = await apiPinTweet(tweetId);
+        updateTweet(tweetId, updatedTweet);
+        clearError('pinTweet');
+      } catch (err) {
+        // Revert optimistic update
+        setTweets(tweets);
+        const message = err instanceof Error ? err.message : 'Failed to pin tweet';
+        setError('pinTweet', message);
+        throw err;
+      }
+    },
+    [currentUser, tweets, updateTweet, clearError, setError]
+  );
+  
+  const unpinTweet = useCallback(
+    async (tweetId: number) => {
+      if (!currentUser) throw new Error('Not authenticated');
+      
+      // Get current tweet
+      const tweet = tweets.get(tweetId);
+      if (!tweet) throw new Error('Tweet not found in store');
+      
+      // Optimistic update
+      updateTweet(tweetId, { isPinned: false });
+      
+      try {
+        const updatedTweet = await apiUnpinTweet(tweetId);
+        updateTweet(tweetId, updatedTweet);
+        clearError('unpinTweet');
+      } catch (err) {
+        // Revert optimistic update
+        updateTweet(tweetId, { isPinned: tweet.isPinned });
+        const message = err instanceof Error ? err.message : 'Failed to unpin tweet';
+        setError('unpinTweet', message);
+        throw err;
+      }
+    },
+    [currentUser, tweets, updateTweet, clearError, setError]
+  );
   
   // ═════════════════════════════════════════════════════════════════════════
   // ACTIONS: Profiles
@@ -741,6 +817,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     unlikeTweet,
     isLiked,
     initializeLikes,
+    pinTweet,
+    unpinTweet,
     setUserProfile,
     fetchUserProfile,
     fetchUserTweets,

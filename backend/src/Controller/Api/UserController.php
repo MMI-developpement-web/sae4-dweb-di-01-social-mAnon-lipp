@@ -140,14 +140,13 @@ class UserController extends AbstractController
         $perPage = $pagination['perPage'];
         $offset = $pagination['offset'];
 
-        $tweets = $this->tweetRepository->findBy(
-            ['author' => $user],
-            ['createdAt' => 'DESC'],
+        $tweets = $this->tweetRepository->findByUserWithPinnedFirst(
+            $user->getId(),
             $perPage,
             $offset
         );
 
-        $total = $this->tweetRepository->count(['author' => $user]);
+        $total = $this->tweetRepository->countByUser($user->getId());
 
         $formattedTweets = $this->tweetApiFormatter->formatCollection($tweets, $currentUser instanceof User ? $currentUser : null);
 

@@ -39,6 +39,7 @@ export interface Tweet {
   createdAt: string;
   updatedAt?: string;
   isLiked?: boolean;
+  isPinned?: boolean;
   medias?: Array<{
     url: string;
     type: 'image' | 'video';
@@ -164,6 +165,18 @@ export interface StoreActions {
    * Populates the likedTweets Set with tweet IDs where isLiked=true
    */
   initializeLikes: (tweets: Tweet[]) => void;
+  
+  // ─── Pin actions ────────────────────────────────────────────────────────
+  
+  /**
+   * Pin a tweet to user's profile (only one pinned tweet per user)
+   */
+  pinTweet: (tweetId: number) => Promise<void>;
+  
+  /**
+   * Unpin a tweet from user's profile
+   */
+  unpinTweet: (tweetId: number) => Promise<void>;
   
   // ─── Profile actions ───────────────────────────────────────────────────
   

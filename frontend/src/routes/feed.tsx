@@ -18,9 +18,10 @@ export async function loader(): Promise<TweetsResponse | Response> {
 
 export default function Feed() {
   const initialData = useLoaderData() as TweetsResponse;
-  const { addTweet, initializeLikes } = useStore();
+  const store = useStore();
+  const { addTweet, initializeLikes, removeTweet } = store;
 
-  const [tweets, setTweets] = useState(initialData.tweets);
+  const [tweetIds, setTweetIds] = useState<number[]>(initialData.tweets.map(t => t.id));
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(
     initialData.pagination.total_items
@@ -29,7 +30,7 @@ export default function Feed() {
   const fetcher = useFetcher<TweetsResponse>();
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const hasMore = tweets.length < totalItems;
+  const hasMore = tweetIds.length < totalItems;
 
   // Initialize Store with loaded tweets and their like state
   useEffect(() => {
@@ -42,19 +43,26 @@ export default function Feed() {
 
   const fetchFeedData = useCallback(async () => {
     const newData = await fetchTweets(1, PER_PAGE);
-    setTweets(newData.tweets);
+    // Add to store
+    newData.tweets.forEach((tweet) => addTweet(tweet));
+    // Update feed tweet IDs
+    setTweetIds(newData.tweets.map(t => t.id));
     setCurrentPage(1);
     setTotalItems(newData.pagination.total_items);
-  }, []);
+  }, [addTweet]);
 
   const { isRefreshing, refreshFeed } = useAutoRefresh(fetchFeedData);
 
   useEffect(() => {
     if (fetcher.data && fetcher.state === "idle") {
-      setTweets((prev) => [...prev, ...fetcher.data!.tweets]);
+      const newTweetIds = fetcher.data.tweets.map(t => t.id);
+      // Add to store
+      fetcher.data.tweets.forEach((tweet) => addTweet(tweet));
+      // Append to feed
+      setTweetIds((prev) => [...prev, ...newTweetIds]);
       setTotalItems(fetcher.data.pagination.total_items);
     }
-  }, [fetcher.data, fetcher.state]);
+  }, [fetcher.data, fetcher.state, addTweet]);
 
   const loadMore = useCallback(() => {
     if (fetcher.state !== "idle" || !hasMore) return;
@@ -79,9 +87,15 @@ export default function Feed() {
   }, [loadMore]);
 
   const handleTweetDeleted = (tweetId: number) => {
-    setTweets((prev) => prev.filter((t) => t.id !== tweetId));
+    setTweetIds((prev) => prev.filter((id) => id !== tweetId));
+    removeTweet(tweetId);
     setTotalItems((prev) => Math.max(0, prev - 1));
   };
+
+  // Get tweets from Store by their IDs - recalculates whenever store.tweets changes (pin/unpinstate)
+  const tweets = tweetIds
+    .map((id) => store.tweets.get(id))
+    .filter((t): t is typeof initialData.tweets[0] => !!t);
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">

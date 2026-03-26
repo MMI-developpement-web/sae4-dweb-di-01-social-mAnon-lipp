@@ -149,6 +149,7 @@ export interface Tweet {
   author: TweetAuthor;
   likeCount?: number;
   isLiked?: boolean;
+  isPinned?: boolean;
   medias?: Array<{
     url: string;
     type: 'image' | 'video';
@@ -265,6 +266,26 @@ export async function likeTweet(tweetId: number): Promise<{ message: string; lik
 export async function unlikeTweet(tweetId: number): Promise<{ message: string; likeCount: number }> {
   return apiFetch<{ message: string; likeCount: number }>(`/tweets/${tweetId}/like`, {
     method: "DELETE",
+  });
+}
+
+/**
+ * Pin a tweet to user's profile
+ * POST /api/tweets/:id/pin
+ */
+export async function pinTweet(tweetId: number): Promise<Tweet> {
+  return apiFetch<Tweet>(`/tweets/${tweetId}/pin`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Unpin a tweet from user's profile
+ * POST /api/tweets/:id/unpin or DELETE /api/tweets/:id/pin
+ */
+export async function unpinTweet(tweetId: number): Promise<Tweet> {
+  return apiFetch<Tweet>(`/tweets/${tweetId}/unpin`, {
+    method: "POST",
   });
 }
 

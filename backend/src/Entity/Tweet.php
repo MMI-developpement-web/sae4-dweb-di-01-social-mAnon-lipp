@@ -54,6 +54,10 @@ class Tweet
     #[ORM\Column]
     private ?bool $isCensored = null;
 
+    #[ORM\Column]
+    #[Groups(['default'])]
+    private bool $isPinned = false;
+
     public function __construct()
     {
         $this->likedByUsers = new ArrayCollection();
@@ -190,6 +194,18 @@ class Tweet
     public function setIsCensored(bool $isCensored): static
     {
         $this->isCensored = $isCensored;
+
+        return $this;
+    }
+
+    public function isPinned(): bool
+    {
+        return $this->isPinned;
+    }
+
+    public function setIsPinned(bool $isPinned): static
+    {
+        $this->isPinned = $isPinned;
 
         return $this;
     }

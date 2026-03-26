@@ -230,6 +230,61 @@ class TweetController extends AbstractController
         ], 200);
     }
 
+    /**
+     * Pin a tweet to user's profile (owner only)
+     * POST /api/tweets/{id}/pin
+     */
+    #[Route('/tweets/{id}/pin', name: 'api.tweets.pin', methods: ['POST'])]
+    public function pin(int $id, #[CurrentUser] User $user): JsonResponse
+    {
+        $tweet = $this->tweetRepository->find($id);
+
+        if (!$tweet) {
+            return $this->errorJson('Tweet non trouvé', 404);
+        }
+
+        if ($tweet->getAuthor()->getId() !== $user->getId()) {
+            return $this->errorJson('Vous n\'êtes pas autorisé à épingler ce tweet', 403);
+        }
+
+        // Unpin any previously pinned tweet by this user
+        $previouslyPinned = $this->tweetRepository->findPinnedByUser($user->getId());
+        if ($previouslyPinned) {
+            $previouslyPinned->setIsPinned(false);
+        }
+
+        // Pin the new tweet
+        $tweet->setIsPinned(true);
+        $this->tweetRepository->save($tweet, true);
+
+        $formattedTweet = $this->tweetApiFormatter->format($tweet, $user);
+        return $this->json($formattedTweet, 200);
+    }
+
+    /**
+     * Unpin a tweet from user's profile (owner only)
+     * DELETE /api/tweets/{id}/pin or POST /api/tweets/{id}/unpin
+     */
+    #[Route('/tweets/{id}/unpin', name: 'api.tweets.unpin', methods: ['POST', 'DELETE'])]
+    public function unpin(int $id, #[CurrentUser] User $user): JsonResponse
+    {
+        $tweet = $this->tweetRepository->find($id);
+
+        if (!$tweet) {
+            return $this->errorJson('Tweet non trouvé', 404);
+        }
+
+        if ($tweet->getAuthor()->getId() !== $user->getId()) {
+            return $this->errorJson('Vous n\'êtes pas autorisé à désépingler ce tweet', 403);
+        }
+
+        $tweet->setIsPinned(false);
+        $this->tweetRepository->save($tweet, true);
+
+        $formattedTweet = $this->tweetApiFormatter->format($tweet, $user);
+        return $this->json($formattedTweet, 200);
+    }
+
     private function countVisibleLikes(\App\Entity\Tweet $tweet): int
     {
         $count = 0;
