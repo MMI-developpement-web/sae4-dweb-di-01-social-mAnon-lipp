@@ -3,9 +3,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { getImageUrl } from "../../lib/utils";
-import { renderTweetContent } from "../../lib/parseTweet";
+// removed renderTweetContent import — using stored content directly
 import { useStore } from "../../store/StoreContext";
-import type { Tweet, Reply } from "../../store/types";
+import type { Tweet, Reply } from "../../lib/api";
 import Avatar from "./Avatar";
 import Heart from "./Heart";
 import ReplyForm from "./ReplyForm";
@@ -55,7 +55,7 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
     likeTweet,
     unlikeTweet,
     deleteTweet,
-    modifyTweet,
+    updateTweet,
     pinTweet: pinTweetAction,
     unpinTweet: unpinTweetAction,
     isLiked,
@@ -75,10 +75,14 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
 
   // Load replies from tweet when component mounts or tweet changes
   useEffect(() => {
-    if (tweet.replies && tweet.replies.length > 0) {
-      setReplies(tweet.replies);
+    // Get currentTweet first, then extract replies
+    const tweetToUse = tweets.get(tweet.id) || tweet;
+    if (tweetToUse.replies && tweetToUse.replies.length > 0) {
+      setReplies(tweetToUse.replies);
+    } else {
+      setReplies([]);
     }
-  }, [tweet.id]);
+  }, [tweet.id, tweets]);
 
   useEffect(() => {
     setBlockedMessage(null);
@@ -153,14 +157,66 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
     setShowEditModal(true);
   };
 
-  const handleConfirmEdit = async (newContent: string, remainingMediaIndices: number[]) => {
+  const handleConfirmEdit = async (newContent: string, remainingMediaIndices: number[], newMediaFiles: File[]) => {
     setIsModifying(true);
     try {
-      const remainingMedias = remainingMediaIndices
-        .map((idx) => currentTweet.medias?.[idx])
-        .filter(Boolean);
+      // Check if media was modified (either some indices removed or new files added)
+      const mediaWasModified = remainingMediaIndices.length !== (currentTweet.medias?.length ?? 0) || newMediaFiles.length > 0;
       
-      await modifyTweet(tweet.id, newContent, remainingMedias || undefined);
+      const token = localStorage.getItem('auth_token');
+      const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787/api";
+      
+      let updatedTweet;
+      
+      if (mediaWasModified) {
+        // Use FormData when media was modified
+        const formData = new FormData();
+        formData.append('content', newContent);
+        formData.append('mediaModified', 'true');
+        
+        // Add remaining existing media indices (even if empty)
+        remainingMediaIndices.forEach((idx) => {
+          formData.append('existingMediaIndices[]', idx.toString());
+        });
+        
+        // Add new media files (if any)
+        newMediaFiles.forEach((file) => {
+          formData.append('media[]', file);
+        });
+        
+        const response = await fetch(`${API_BASE}/tweets/${tweet.id}`, {
+          method: 'PUT',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Erreur lors de la modification du tweet');
+        }
+
+        updatedTweet = await response.json();
+      } else {
+        // No media modification, use JSON
+        const response = await fetch(`${API_BASE}/tweets/${tweet.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ content: newContent }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Erreur lors de la modification du tweet');
+        }
+
+        updatedTweet = await response.json();
+      }
+
+      // Update store immediately with server response
+      updateTweet(tweet.id, updatedTweet);
       setShowEditModal(false);
       clearError('modifyTweet');
     } catch (error) {
@@ -171,7 +227,10 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
   };
 
   const handleReplyCreated = (reply: Reply) => {
-    setReplies([...replies, reply]);
+    const updatedReplies = [...replies, reply];
+    setReplies(updatedReplies);
+    // Also update the store so replies persist when navigating away
+    updateTweet(tweet.id, { replies: updatedReplies });
     setShowReplyForm(false);
   };
 
@@ -310,8 +369,8 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
           </div>
 
           {/* Tweet content */}
-          <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
-            {renderTweetContent(currentTweet.content)}
+            <p className="text-tweet-text text-sm font-medium leading-normal break-words w-full">
+            {currentTweet.content}
           </p>
 
           {/* Media gallery */}

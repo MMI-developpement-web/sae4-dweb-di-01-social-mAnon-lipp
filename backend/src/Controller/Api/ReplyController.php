@@ -10,7 +10,9 @@ use App\Service\ReplyService;
 use App\Service\BlockService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -30,13 +32,14 @@ class ReplyController extends AbstractController
     }
 
     /**
-     * Create a reply to a tweet
+     * Create a reply to a tweet with optional media
      * POST /api/tweets/{tweetId}/replies
+     * Supports multipart/form-data with 'content' and optional file uploads
      */
     #[Route('/tweets/{tweetId}/replies', name: 'api.replies.create', methods: ['POST'])]
     public function create(
         int $tweetId,
-        #[MapRequestPayload] CreateReplyPayload $payload,
+        Request $request,
         #[CurrentUser] User $user,
     ): JsonResponse
     {
@@ -45,23 +48,50 @@ class ReplyController extends AbstractController
             return $this->errorJson('Tweet non trouvé', 404);
         }
 
-        // Check if tweet author has read-only mode enabled
-        if ($tweet->getAuthor()->getReadOnly()) {
-            return $this->errorJson('Les commentaires sont désactivés pour ce compte', 403);
-        }
-
         // Check if user is blocked by tweet author
         if ($this->blockService->isBlockedBy($user, $tweet->getAuthor())) {
             return $this->errorJson('Vous avez été bloqué par cet utilisateur', 403);
         }
 
         try {
-            $reply = $this->replyService->createReply($user, $payload->content, $tweetId);
+            $contentType = strtolower((string) $request->headers->get('Content-Type', ''));
+            
+            // Parse multipart manually if Symfony didn't
+            if (str_starts_with($contentType, 'multipart/form-data')) {
+                $this->parseMultipartManually($request);
+            }
+
+            // Get content from request
+            $content = $request->request->get('content', '');
+            if (!is_string($content)) {
+                $content = '';
+            }
+
+            $mediaFiles = [];
+
+            // Extract media files if multipart
+            if (str_starts_with($contentType, 'multipart/form-data')) {
+                $mediaFiles = $this->extractMediaFiles($request);
+            }
+
+            // At least text or one media file is required
+            if ($content === '' && $mediaFiles === []) {
+                return $this->errorJson('La réponse ne peut pas être vide', 400);
+            }
+
+            // Validate content length
+            if (mb_strlen($content) > 280) {
+                return $this->errorJson('La réponse ne peut pas dépasser 280 caractères', 400);
+            }
+
+            // Create reply with optional medias
+            $reply = $this->replyService->createReply($user, $content, $tweetId, empty($mediaFiles) ? null : $mediaFiles);
             return $this->json($reply, 201, [], ['groups' => 'default']);
         } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
             return $this->errorJson('Tweet not found', 404);
         } catch (\Exception $e) {
-            return $this->errorJson('Failed to create reply', 500);
+            error_log("ERROR in create reply: " . $e->getMessage());
+            return $this->errorJson('Erreur lors de la création de la réponse: ' . $e->getMessage(), 500);
         }
     }
 

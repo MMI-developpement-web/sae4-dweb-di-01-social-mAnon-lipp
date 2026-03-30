@@ -59,6 +59,35 @@ export default function ReplyList({ replies = [] }: ReplyListProps) {
             <p className="text-sm text-tweet-text mt-1 break-words">
               {reply.content}
             </p>
+            {reply.medias && reply.medias.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {reply.medias.map((media, idx) => {
+                  const imageUrl = getImageUrl(media.url);
+
+                  if (media.type === 'image' && imageUrl) {
+                    return (
+                      <img
+                        key={idx}
+                        src={imageUrl}
+                        alt={`Reply media ${idx + 1}`}
+                        className="w-full h-auto max-h-96 object-cover rounded-lg"
+                      />
+                    );
+                  } else if (media.type === 'video' && imageUrl) {
+                    return (
+                      <video
+                        key={idx}
+                        src={imageUrl}
+                        controls
+                        className="w-full h-40 sm:h-56 object-cover rounded-lg bg-black"
+                      />
+                    );
+                  }
+
+                  return null;
+                })}
+              </div>
+            )}
           </div>
         </div>
       ))}

@@ -2,14 +2,24 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("auth_token");
-  const res = await fetch(`${API_BASE}${path}`, {
+  
+  // Properly merge headers: defaults → token → user options
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options?.headers || {}),
+  };
+  
+  // Build fetch options, but exclude headers to prevent duplication
+  const fetchOpts: RequestInit = {
     cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
     ...options,
-  });
+  };
+  
+  // Override with merged headers
+  fetchOpts.headers = headers;
+  
+  const res = await fetch(`${API_BASE}${path}`, fetchOpts);
   if (res.status === 401 && !window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/register")) {
     localStorage.removeItem("auth_token");
     window.location.href = "/login";
@@ -163,6 +173,11 @@ export interface Reply {
   content: string;
   author: TweetAuthor;
   createdAt: string;
+  medias?: Array<{
+    url: string;
+    type: 'image' | 'video';
+    mimeType: string;
+  }>;
 }
 
 export interface Pagination {
@@ -196,10 +211,58 @@ export async function fetchTweets(page: number, perPage = 20): Promise<TweetsRes
   return apiFetch<TweetsResponse>(`/tweets?page=${page}&per_page=${perPage}`);
 }
 
+/**
+ * Search tweets in the feed
+ * GET /api/tweets/search?q=&user=&startDate=&page=&per_page=
+ */
+export interface SearchFilters {
+  q?: string;
+  user?: string;
+  startDate?: string;
+  searchType?: "all" | "tweets" | "users";
+}
+
+export async function searchTweets(
+  page: number,
+  perPage = 20,
+  filters: SearchFilters = {}
+): Promise<TweetsResponse> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    per_page: perPage.toString(),
+  });
+
+  if (filters.q) params.append('q', filters.q);
+  if (filters.user) params.append('user', filters.user);
+  if (filters.startDate) params.append('startDate', filters.startDate);
+
+  return apiFetch<TweetsResponse>(`/tweets/search?${params.toString()}`);
+}
+
+/**
+ * Search for a user by username
+ * GET /api/users/by-username/{username}
+ */
+export async function searchUsers(username: string): Promise<UserProfileResponse> {
+  return apiFetch<UserProfileResponse>(`/users/by-username/${encodeURIComponent(username)}`);
+}
+
 export async function postTweet(content: string): Promise<Tweet> {
   return apiFetch<Tweet>("/tweets", {
     method: "POST",
     body: JSON.stringify({ content }),
+  });
+}
+
+/**
+ * Create a tweet (text only)
+ * POST /api/tweets
+ * Sends JSON with 'content'
+ */
+export async function createTweet(content: string): Promise<Tweet> {
+  return apiFetch<Tweet>("/tweets", {
+    method: "POST",
+    body: JSON.stringify({ content: content.trim() }),
   });
 }
 
@@ -469,7 +532,21 @@ export async function updateReadOnly(userId: number, readOnly: boolean): Promise
  * Create a reply to a tweet
  * POST /api/tweets/:tweetId/replies
  */
-export async function createReply(tweetId: number, content: string): Promise<Reply> {
+export async function createReply(tweetId: number, content: string, mediaFiles?: File[]): Promise<Reply> {
+  // If media files provided, send as multipart/form-data
+  if (mediaFiles && mediaFiles.length > 0) {
+    const formData = new FormData();
+    formData.append('content', content);
+    // tweetId is part of URL, but keep for compatibility
+    formData.append('tweetId', tweetId.toString());
+    mediaFiles.forEach((file) => formData.append('media[]', file));
+    return apiFetchFormData<Reply>(`/tweets/${tweetId}/replies`, {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  // Otherwise send as JSON
   return apiFetch<Reply>(`/tweets/${tweetId}/replies`, {
     method: "POST",
     body: JSON.stringify({ tweetId, content }),

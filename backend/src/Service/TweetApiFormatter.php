@@ -50,8 +50,8 @@ class TweetApiFormatter
                 ? $currentUser->getLikedTweets()->contains($tweet)
                 : false;
             
-            // Add media URLs if present
-            if ($tweet->getMedias() && is_array($tweet->getMedias())) {
+            // Add media URLs (always include, even if empty array)
+            if (is_array($tweet->getMedias())) {
                 $tweetData['medias'] = array_map(
                     fn (array $media): array => [
                         'url' => $media['url'] ?? null, // URL already has /uploads/ prefix from TweetUploadService
@@ -60,6 +60,9 @@ class TweetApiFormatter
                     ],
                     $tweet->getMedias()
                 );
+            } else {
+                // Explicitly set empty array if no medias
+                $tweetData['medias'] = [];
             }
 
             // Add replies - filter censored ones
@@ -77,6 +80,14 @@ class TweetApiFormatter
                                 'username' => $reply->getAuthor()->getUsername(),
                                 'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($reply->getAuthor()->getProfilePicture()),
                             ],
+                            'medias' => is_array($reply->getMedias()) ? array_map(
+                                fn (array $media): array => [
+                                    'url' => $media['url'] ?? null,
+                                    'type' => $media['type'] ?? 'image',
+                                    'mimeType' => $media['mimeType'] ?? '',
+                                ],
+                                $reply->getMedias()
+                            ) : [],
                         ],
                         $visibleReplies
                     );

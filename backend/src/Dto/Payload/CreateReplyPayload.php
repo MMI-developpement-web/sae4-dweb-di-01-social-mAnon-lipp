@@ -12,4 +12,7 @@ class CreateReplyPayload
 
     #[Assert\Positive]
     public int $tweetId = 0;
+
+    #[Assert\Type(type: 'array', message: 'Media must be an array')]
+    public ?array $medias = null;
 }

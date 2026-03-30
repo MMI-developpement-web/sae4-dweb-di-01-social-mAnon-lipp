@@ -16,7 +16,7 @@ export default function ProfileHeader({
   isOwnProfile,
   onFollowChange,
 }: ProfileHeaderProps) {
-  const { blockUser: storeBlockUser, unblockUser: storeUnblockUser, isBlocked } = useStore();
+  const { blockUser: storeBlockUser, unblockUser: storeUnblockUser } = useStore();
   const [isFollowing, setIsFollowing] = useState(user.isFollowing);
   const [blocked, setBlocked] = useState(user.isBlocked);
   const [isLoading, setIsLoading] = useState(false);
@@ -173,6 +173,7 @@ export default function ProfileHeader({
             ? `Êtes-vous sûr de vouloir débloquer ${user.username} ? Il pourra à nouveau vous suivre et accéder à vos messages.`
             : `Êtes-vous sûr de vouloir bloquer ${user.username} ? Il ne pourra pas vous suivre ni accéder à vos messages.`
         }
+        confirmButtonText={blocked ? "Débloquer" : "Bloquer"}
         onConfirm={handleBlockClick}
         onCancel={() => setShowBlockConfirm(false)}
         isLoading={isLoading}

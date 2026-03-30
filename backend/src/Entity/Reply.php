@@ -35,6 +35,15 @@ class Reply
     #[ORM\Column]
     private ?bool $isCensored = null;
 
+    #[ORM\Column(nullable: true)]
+    #[Groups(['default'])]
+    private ?array $medias = null;
+
+    public function __construct()
+    {
+        $this->medias = [];
+    }
+
     public function getId(): ?int
     {
         return $this->id;
@@ -96,6 +105,18 @@ class Reply
     public function setIsCensored(bool $isCensored): static
     {
         $this->isCensored = $isCensored;
+
+        return $this;
+    }
+
+    public function getMedias(): array
+    {
+        return $this->medias ?? [];
+    }
+
+    public function setMedias(?array $medias): static
+    {
+        $this->medias = $medias;
 
         return $this;
     }

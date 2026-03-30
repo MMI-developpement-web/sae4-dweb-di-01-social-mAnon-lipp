@@ -104,6 +104,89 @@ class TweetRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
+    /**
+     * Search tweets in user's feed by content, author, and date
+     * @return Tweet[]
+     */
+    public function searchFeedForUser(
+        int $userId,
+        int $limit,
+        int $offset,
+        string $query = '',
+        string $username = '',
+        ?\DateTime $startDate = null
+    ): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->leftJoin('t.author', 'author')
+            ->leftJoin('author.followersUsers', 'follower')
+            ->leftJoin('author.blockedByUsers', 'blocker')
+            ->andWhere('IDENTITY(t.author) = :userId OR follower.id = :userId')
+            ->andWhere('blocker.id != :userId OR blocker.id IS NULL')
+            ->setParameter('userId', $userId);
+
+        // Filter by content
+        if ($query !== '') {
+            $qb->andWhere('t.content LIKE :query')
+                ->setParameter('query', '%' . $query . '%');
+        }
+
+        // Filter by author username
+        if ($username !== '') {
+            $qb->andWhere('author.username LIKE :username')
+                ->setParameter('username', '%' . $username . '%');
+        }
+
+        // Filter by start date
+        if ($startDate !== null) {
+            $qb->andWhere('t.createdAt >= :startDate')
+                ->setParameter('startDate', $startDate);
+        }
+
+        return $qb->orderBy('t.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->setFirstResult($offset)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Count search results
+     */
+    public function countSearchFeedForUser(
+        int $userId,
+        string $query = '',
+        string $username = '',
+        ?\DateTime $startDate = null
+    ): int
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->select('COUNT(DISTINCT t.id)')
+            ->leftJoin('t.author', 'author')
+            ->leftJoin('author.followersUsers', 'follower')
+            ->leftJoin('author.blockedByUsers', 'blocker')
+            ->andWhere('IDENTITY(t.author) = :userId OR follower.id = :userId')
+            ->andWhere('blocker.id != :userId OR blocker.id IS NULL')
+            ->setParameter('userId', $userId);
+
+        if ($query !== '') {
+            $qb->andWhere('t.content LIKE :query')
+                ->setParameter('query', '%' . $query . '%');
+        }
+
+        if ($username !== '') {
+            $qb->andWhere('author.username LIKE :username')
+                ->setParameter('username', '%' . $username . '%');
+        }
+
+        if ($startDate !== null) {
+            $qb->andWhere('t.createdAt >= :startDate')
+                ->setParameter('startDate', $startDate);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
     public function save(Tweet $tweet, bool $flush = false): void
     {
         $this->getEntityManager()->persist($tweet);

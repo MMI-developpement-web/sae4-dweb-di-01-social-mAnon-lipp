@@ -66,6 +66,58 @@ class TweetController extends AbstractController
     }
 
     /**
+     * Search tweets in user's feed
+     * GET /api/tweets/search?q=&user=&startDate=
+     */
+    #[Route('/tweets/search', name: 'api.tweets.search', methods: ['GET'])]
+    public function search(Request $request, #[CurrentUser] User $user): JsonResponse
+    {
+        $pagination = $this->paginationResolver->fromRequest($request);
+        $page = $pagination['page'];
+        $perPage = $pagination['perPage'];
+        $offset = $pagination['offset'];
+
+        $query = $request->query->get('q', '');
+        $username = $request->query->get('user', '');
+        $startDateStr = $request->query->get('startDate', null);
+        $startDate = null;
+
+        if ($startDateStr) {
+            try {
+                $startDate = new \DateTime($startDateStr);
+            } catch (\Exception) {
+                // Invalid date format, ignore
+            }
+        }
+
+        $tweets = $this->tweetRepository->searchFeedForUser(
+            $user->getId(),
+            $perPage,
+            $offset,
+            $query,
+            $username,
+            $startDate
+        );
+        $total = $this->tweetRepository->countSearchFeedForUser(
+            $user->getId(),
+            $query,
+            $username,
+            $startDate
+        );
+
+        $formattedTweets = $this->tweetApiFormatter->formatCollection($tweets, $user);
+
+        return $this->json([
+            'tweets' => $formattedTweets,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total_items' => $total,
+            ],
+        ], 200);
+    }
+
+    /**
      * Create a new tweet with optional media uploads
      * POST /api/tweets
      * Supports multipart/form-data with 'content' and optional file uploads
@@ -153,7 +205,7 @@ class TweetController extends AbstractController
      * PUT /api/tweets/{id}
      */
     #[Route('/tweets/{id}', name: 'api.tweets.update', methods: ['PUT'])]
-    public function update(int $id, #[MapRequestPayload] TweetPayload $payload, #[CurrentUser] User $user): JsonResponse
+    public function update(int $id, Request $request, #[CurrentUser] User $user): JsonResponse
     {
         $tweet = $this->tweetRepository->find($id);
 
@@ -161,13 +213,93 @@ class TweetController extends AbstractController
             return $this->errorJson('Tweet non trouvé', 404);
         }
 
-        try {
-            $tweet = $this->tweetService->updateTweet($user, $tweet, trim($payload->content), $payload->medias);
-        } catch (\RuntimeException $e) {
+        // Check authorization first
+        if ($tweet->getAuthor()->getId() !== $user->getId()) {
             return $this->errorJson('Vous n\'êtes pas autorisé à modifier ce tweet', 403);
         }
 
-        return $this->json($tweet, 200, [], ['groups' => 'default']);
+        $contentType = strtolower((string) $request->headers->get('Content-Type', ''));
+        
+        // Parse multipart manually if Symfony didn't
+        if (str_starts_with($contentType, 'multipart/form-data')) {
+            $this->parseMultipartManually($request);
+        }
+        
+        $content = $this->extractTweetContent($request);
+        error_log("DEBUG UPDATE: Found content: '" . $content . "'");
+
+        try {
+            // Validate content not empty and not too long
+            if (trim($content) === '') {
+                return $this->errorJson('Le tweet ne peut pas être vide', 400);
+            }
+
+            if (mb_strlen($content) > 280) {
+                return $this->errorJson('Le tweet ne peut pas dépasser 280 caractères', 400);
+            }
+
+            // Check if media was explicitly modified (this flag tells us the user edited media)
+            $mediaModified = $request->request->has('mediaModified') && 
+                           $request->request->get('mediaModified') === 'true';
+            
+            error_log("DEBUG UPDATE: mediaModified=" . ($mediaModified ? 'true' : 'false'));
+
+            $medias = [];
+            $existingMedias = $tweet->getMedias() ?? [];
+            
+            if ($mediaModified) {
+                // User modified media - rebuild from scratch
+                // Handle existing media indices - which ones to keep
+                $existingMediaIndices = [];
+                if ($request->request->has('existingMediaIndices')) {
+                    $existingIndicesParam = $request->request->get('existingMediaIndices');
+                    if (is_array($existingIndicesParam)) {
+                        $existingMediaIndices = array_map('intval', $existingIndicesParam);
+                    } elseif (is_string($existingIndicesParam) && $existingIndicesParam !== '') {
+                        $existingMediaIndices = [intval($existingIndicesParam)];
+                    }
+                }
+                
+                error_log("DEBUG UPDATE: existingMediaIndices=" . json_encode($existingMediaIndices) . ", existing count=" . count($existingMedias));
+                
+                // Keep only the medias at the specified indices
+                foreach ($existingMediaIndices as $idx) {
+                    if (isset($existingMedias[$idx])) {
+                        $medias[] = $existingMedias[$idx];
+                    }
+                }
+            } else {
+                // User didn't modify media - keep existing ones
+                error_log("DEBUG UPDATE: No media modification, keeping existing " . count($existingMedias) . " medias");
+                $medias = $existingMedias;
+            }
+
+            // Add new media files from FormData (if any)
+            if (str_starts_with($contentType, 'multipart/form-data')) {
+                $mediaFiles = $this->extractMediaFiles($request);
+                error_log("DEBUG UPDATE: Found " . count($mediaFiles) . " new media files");
+                
+                if (!empty($mediaFiles)) {
+                    $newMedias = $this->tweetUploadService->uploadTweetMedias($mediaFiles);
+                    $medias = array_merge($medias, $newMedias);
+                }
+            }
+
+            error_log("DEBUG UPDATE: Final medias count=" . count($medias));
+
+            // Update the tweet using the service
+            // When media was modified, always pass the array (even if empty) so images get properly cleared
+            // When media was NOT modified, pass null to keep existing images
+            $tweet = $this->tweetService->updateTweet($user, $tweet, $content, $mediaModified ? $medias : null);
+
+            $formattedTweet = $this->tweetApiFormatter->format($tweet, $user);
+            return $this->json($formattedTweet, 200);
+        } catch (\Exception $e) {
+            error_log("Exception in update tweet: " . get_class($e) . " - " . $e->getMessage());
+            error_log("File: " . $e->getFile() . ":" . $e->getLine());
+            error_log("Trace: " . $e->getTraceAsString());
+            return $this->errorJson('Erreur: ' . $e->getMessage(), 400);
+        }
     }
 
     /**

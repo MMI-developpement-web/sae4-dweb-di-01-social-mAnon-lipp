@@ -5,6 +5,7 @@ interface ConfirmDeleteModalProps {
   title: string;
   message: string;
   isLoading?: boolean;
+  confirmButtonText?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -14,6 +15,7 @@ export default function ConfirmDeleteModal({
   title,
   message,
   isLoading = false,
+  confirmButtonText = "Supprimer",
   onConfirm,
   onCancel,
 }: ConfirmDeleteModalProps) {
@@ -42,7 +44,7 @@ export default function ConfirmDeleteModal({
             disabled={isLoading}
             type="button"
           >
-            {isLoading ? "Suppression..." : "Supprimer"}
+            {isLoading ? `${confirmButtonText}...` : confirmButtonText}
           </Button>
         </div>
       </div>

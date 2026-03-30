@@ -62,6 +62,7 @@ class Tweet
     {
         $this->likedByUsers = new ArrayCollection();
         $this->replies = new ArrayCollection();
+        $this->medias = [];
     }
 
     public function getId(): ?int
