@@ -15,13 +15,17 @@ const bannerVariants = cva(
   }
 );
 
-interface BannerProps extends VariantProps<typeof bannerVariants> {
-  src?: string;
-  alt?: string;
-  className?: string;
-}
+interface BannerProps
+  extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "height">,
+    VariantProps<typeof bannerVariants> {}
 
-export default function Banner({ src, alt = "Banner", height, className }: BannerProps) {
+export default function Banner({
+  height,
+  className,
+  src,
+  alt = "Banner",
+  ...imgProps
+}: BannerProps) {
   const imageUrl = getImageUrl(src);
 
   if (!imageUrl) {
@@ -38,6 +42,7 @@ export default function Banner({ src, alt = "Banner", height, className }: Banne
 
   return (
     <img
+      {...imgProps}
       src={imageUrl}
       alt={alt}
       className={cn(bannerVariants({ height }), className)}

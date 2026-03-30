@@ -9,7 +9,6 @@ import Avatar from "../components/ui/Avatar";
 import { useStore } from "../store/StoreContext";
 import { fetchTweets, searchTweets, searchUsers, type TweetsResponse, type SearchFilters } from "../lib/api";
 import { useAutoRefresh } from "../hooks/useAutoRefresh";
-import { getImageUrl } from "../lib/utils";
 
 const PER_PAGE = 20;
 

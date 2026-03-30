@@ -3,6 +3,7 @@
 namespace App\Controller\Api;
 
 use App\Dto\Payload\TweetPayload;
+use App\Dto\Payload\SearchQueryDTO;
 use App\Entity\User;
 use App\Repository\TweetRepository;
 use App\Resolver\MediaUrlResolver;
@@ -19,6 +20,7 @@ use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api', format: 'json')]
 #[IsGranted('ROLE_USER')]
@@ -35,6 +37,7 @@ class TweetController extends AbstractController
         private MediaUrlResolver $mediaUrlResolver,
         private LikeService $likeService,
         private BlockService $blockService,
+        private ValidatorInterface $validator,
     ) {
     }
 
@@ -72,36 +75,48 @@ class TweetController extends AbstractController
     #[Route('/tweets/search', name: 'api.tweets.search', methods: ['GET'])]
     public function search(Request $request, #[CurrentUser] User $user): JsonResponse
     {
-        $pagination = $this->paginationResolver->fromRequest($request);
-        $page = $pagination['page'];
-        $perPage = $pagination['perPage'];
-        $offset = $pagination['offset'];
+        // Build SearchQueryDTO from query parameters
+        $searchDto = new \App\Dto\Payload\SearchQueryDTO();
+        $searchDto->q = $request->query->get('q');
+        $searchDto->user = $request->query->get('user');
+        $searchDto->startDate = $request->query->get('startDate');
+        $searchDto->page = (int) $request->query->get('page', 1);
+        $searchDto->per_page = (int) $request->query->get('per_page', 20);
 
-        $query = $request->query->get('q', '');
-        $username = $request->query->get('user', '');
-        $startDateStr = $request->query->get('startDate', null);
+        // Validate the DTO
+        $violations = $this->validator->validate($searchDto);
+        if (count($violations) > 0) {
+            $errors = [];
+            foreach ($violations as $violation) {
+                $errors[$violation->getPropertyPath()] = $violation->getMessage();
+            }
+            return $this->json(['errors' => $errors], 400);
+        }
+
+        // Calculate pagination
+        $offset = ($searchDto->page - 1) * $searchDto->per_page;
         $startDate = null;
 
-        if ($startDateStr) {
+        if ($searchDto->startDate) {
             try {
-                $startDate = new \DateTime($startDateStr);
+                $startDate = new \DateTime($searchDto->startDate);
             } catch (\Exception) {
-                // Invalid date format, ignore
+                // Invalid date format already caught by validator
             }
         }
 
         $tweets = $this->tweetRepository->searchFeedForUser(
             $user->getId(),
-            $perPage,
+            $searchDto->per_page,
             $offset,
-            $query,
-            $username,
+            $searchDto->q ?? '',
+            $searchDto->user ?? '',
             $startDate
         );
         $total = $this->tweetRepository->countSearchFeedForUser(
             $user->getId(),
-            $query,
-            $username,
+            $searchDto->q ?? '',
+            $searchDto->user ?? '',
             $startDate
         );
 
@@ -110,8 +125,8 @@ class TweetController extends AbstractController
         return $this->json([
             'tweets' => $formattedTweets,
             'pagination' => [
-                'current_page' => $page,
-                'per_page' => $perPage,
+                'current_page' => $searchDto->page,
+                'per_page' => $searchDto->per_page,
                 'total_items' => $total,
             ],
         ], 200);

@@ -12,7 +12,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User, Tweet, UserProfile, StoreContextType } from './types';
-import { apiFetch, fetchCurrentUser, updateProfile as apiUpdateProfile, blockUser as apiBlockUser, unblockUser as apiUnblockUser, fetchBlockedUsers, pinTweet as apiPinTweet, unpinTweet as apiUnpinTweet } from '../lib/api';
+import { apiFetch, fetchCurrentUser, updateProfile as apiUpdateProfile, blockUser as apiBlockUser, unblockUser as apiUnblockUser, fetchBlockedUsers, pinTweet as apiPinTweet, unpinTweet as apiUnpinTweet, updateTweet as apiUpdateTweet } from '../lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create Context
@@ -312,7 +312,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!currentUser) throw new Error('Not authenticated');
       
       try {
-        const { updateTweet: apiUpdateTweet } = await import('../lib/api');
         const updatedTweet = await apiUpdateTweet(tweetId, content, medias);
         updateTweet(tweetId, updatedTweet);
         clearError('modifyTweet');

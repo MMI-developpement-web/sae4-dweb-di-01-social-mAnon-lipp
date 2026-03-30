@@ -25,6 +25,13 @@ class ReplyService
             throw new NotFoundHttpException('Tweet not found');
         }
 
+        // Check if tweet author is in read-only mode
+        if ($tweet->getAuthor()->getReadOnly()) {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException(
+                'This account is in read-only mode. No one can reply to their tweets.'
+            );
+        }
+
         $reply = new Reply();
         $reply->setContent(trim($content));
         $reply->setAuthor($author);

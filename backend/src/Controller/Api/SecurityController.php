@@ -127,6 +127,43 @@ class SecurityController extends AbstractController
     }
 
     /**
+     * Refresh the current access token
+     * POST /api/refresh-token
+     * 
+     * Returns a new access token valid for 30 more days
+     * Requires a valid Bearer token in Authorization header
+     */
+    #[Route('/refresh-token', name: 'api.refresh_token', methods: ['POST'])]
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_USER')]
+    public function refreshToken(
+        #[CurrentUser] ?User $user,
+        Request $request
+    ): JsonResponse {
+        if (!$user) {
+            return $this->errorJson('Non authentifié', 401);
+        }
+
+        $rawToken = $this->extractBearerToken($request->headers->get('Authorization'));
+        if ($rawToken === null) {
+            return $this->errorJson('Token invalide', 401);
+        }
+
+        $token = $this->tokenManager->findValidToken($rawToken);
+        if ($token === null) {
+            return $this->errorJson('Token invalide ou expiré', 401);
+        }
+
+        // Generate a new token for the user
+        $newToken = $this->tokenManager->generateForUser($user);
+
+        return $this->json([
+            'message' => 'Token rafraîchi avec succès',
+            'token' => $newToken,
+            'expiresAt' => (new \DateTimeImmutable('+30 days'))->toAtom()
+        ], 200);
+    }
+
+    /**
      * Get current user profile
      * GET /api/me
      */

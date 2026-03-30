@@ -89,6 +89,8 @@ class ReplyController extends AbstractController
             return $this->json($reply, 201, [], ['groups' => 'default']);
         } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
             return $this->errorJson('Tweet not found', 404);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->errorJson($e->getMessage(), 403);
         } catch (\Exception $e) {
             error_log("ERROR in create reply: " . $e->getMessage());
             return $this->errorJson('Erreur lors de la création de la réponse: ' . $e->getMessage(), 500);

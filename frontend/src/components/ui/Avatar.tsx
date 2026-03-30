@@ -18,19 +18,24 @@ const avatarVariants = cva(
   }
 );
 
-interface AvatarProps extends VariantProps<typeof avatarVariants> {
-  src?: string;
-  alt: string;
-  className?: string;
-}
+interface AvatarProps
+  extends React.ImgHTMLAttributes<HTMLImageElement>,
+    VariantProps<typeof avatarVariants> {}
 
 const DEFAULT_AVATAR = placeholder;
 
-export default function Avatar({ src, alt, size, className }: AvatarProps) {
+export default function Avatar({
+  size,
+  className,
+  src,
+  alt = "Avatar",
+  ...imgProps
+}: AvatarProps) {
   const imageUrl = getImageUrl(src) || DEFAULT_AVATAR;
 
   return (
     <img
+      {...imgProps}
       src={imageUrl}
       alt={alt}
       className={cn(avatarVariants({ size }), className)}
