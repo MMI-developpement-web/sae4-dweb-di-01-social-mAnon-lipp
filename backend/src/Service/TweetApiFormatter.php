@@ -18,8 +18,24 @@ class TweetApiFormatter
     /**
      * @return array<string, mixed>
      */
-    public function format(Tweet $tweet, ?User $currentUser): array
+    public function format(?Tweet $tweet, ?User $currentUser): array
     {
+        // Handle deleted tweets
+        if ($tweet === null) {
+            return [
+                'id' => null,
+                'content' => 'Ce tweet a été supprimé',
+                'createdAt' => null,
+                'author' => [
+                    'id' => null,
+                    'username' => 'Utilisateur supprimé',
+                    'profilePicture' => null,
+                ],
+                'isDeleted' => true,
+                'medias' => [],
+            ];
+        }
+
         $content = $tweet->getContent();
         $authorUsername = $tweet->getAuthor()->getUsername();
         $isBlocked = $this->blockedAccountService->isUserBlocked($tweet->getAuthor());
@@ -43,6 +59,7 @@ class TweetApiFormatter
                 'username' => $authorUsername,
                 'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($tweet->getAuthor()->getProfilePicture()),
             ],
+            'isDeleted' => false,
         ];
 
         if (!$isBlocked && !$isCensored) {

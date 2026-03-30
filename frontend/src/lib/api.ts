@@ -522,9 +522,7 @@ export async function updateProfile(
   if (data.bio !== undefined && data.bio.trim()) normalizedData.bio = data.bio.trim();
   if (data.website !== undefined && data.website.trim()) normalizedData.website = data.website.trim();
   if (data.location !== undefined && data.location.trim()) normalizedData.location = data.location.trim();
-  
-  console.log('🔍 DEBUG updateProfile (JSON)', { normalizedData });
-  
+    
   return apiFetch<UpdateProfileResponse>(`/users/${userId}`, {
     method: "PUT",
     body: JSON.stringify(normalizedData),

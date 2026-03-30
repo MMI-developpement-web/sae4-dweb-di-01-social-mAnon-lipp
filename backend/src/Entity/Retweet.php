@@ -16,7 +16,7 @@ class Retweet
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'retweets')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     #[Groups(['default'])]
     private ?Tweet $originalTweet = null;
 

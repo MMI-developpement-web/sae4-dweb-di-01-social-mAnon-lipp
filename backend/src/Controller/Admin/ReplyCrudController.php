@@ -4,6 +4,7 @@ namespace App\Controller\Admin;
 
 use App\Entity\Reply;
 use App\Service\CensorService;
+use App\Service\TweetDeleteService;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
@@ -22,6 +23,7 @@ class ReplyCrudController extends AbstractCrudController
 {
     public function __construct(
         private CensorService $censorService,
+        private TweetDeleteService $tweetDeleteService,
         private AdminUrlGeneratorInterface $adminUrlGenerator,
     ) {
     }
@@ -42,10 +44,12 @@ class ReplyCrudController extends AbstractCrudController
             ->addCssClass('btn btn-success');
 
         return $actions
-            ->disable(Action::NEW, Action::DELETE, Action::EDIT)
+            ->disable(Action::NEW, Action::EDIT)
             ->add(Crud::PAGE_INDEX, Action::DETAIL)
             ->add(Crud::PAGE_DETAIL, $censorAction)
-            ->add(Crud::PAGE_DETAIL, $uncensorAction);
+            ->add(Crud::PAGE_DETAIL, $uncensorAction)
+            ->update(Crud::PAGE_INDEX, Action::DELETE, fn (Action $action) => $action->addCssClass('btn btn-danger'))
+            ->update(Crud::PAGE_DETAIL, Action::DELETE, fn (Action $action) => $action->addCssClass('btn btn-danger'));
     }
 
     public function configureCrud(Crud $crud): Crud
@@ -55,7 +59,8 @@ class ReplyCrudController extends AbstractCrudController
             ->setEntityLabelInPlural('Réponses')
             ->setDefaultSort(['createdAt' => 'DESC'])
             ->setPageTitle('index', 'Réponses')
-            ->setPageTitle('detail', 'Détail de la Réponse');
+            ->setPageTitle('detail', 'Détail de la Réponse')
+            ->setSearchFields(['content', 'author.username', 'tweet.content']);
     }
 
     public function configureFields(string $pageName): iterable
@@ -98,6 +103,13 @@ class ReplyCrudController extends AbstractCrudController
                 ->setEntityId($reply->getId())
                 ->generateUrl()
         );
+    }
+
+    public function deleteEntity(\Doctrine\ORM\EntityManagerInterface $entityManager, object $entityInstance): void
+    {
+        if ($entityInstance instanceof Reply) {
+            $this->tweetDeleteService->deleteReply($entityInstance);
+        }
     }
 }
 
