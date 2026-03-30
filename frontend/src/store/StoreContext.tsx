@@ -11,7 +11,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { User, Tweet, UserProfile, StoreContextType } from './types';
+import type { User, Tweet, UserProfile, Retweet, StoreContextType } from './types';
 import { apiFetch, fetchCurrentUser, updateProfile as apiUpdateProfile, blockUser as apiBlockUser, unblockUser as apiUnblockUser, fetchBlockedUsers, pinTweet as apiPinTweet, unpinTweet as apiUnpinTweet, updateTweet as apiUpdateTweet } from '../lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [followingUsers, setFollowingUsers] = useState<Set<number>>(new Set());
   const [likedTweets, setLikedTweets] = useState<Set<number>>(new Set());
   const [blockedUsers, setBlockedUsers] = useState<Set<number>>(new Set());
+  const [retweetedTweets, setRetweetedTweets] = useState<Map<number, number>>(new Map());
   
   // ─── UI State ───────────────────────────────────────────────────────────
   const [isLoadingFeed, setIsLoadingFeed] = useState(false);
@@ -487,7 +488,151 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     },
     [currentUser, tweets, updateTweet, clearError, setError]
   );
-  
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // ACTIONS: Retweet
+  // ═════════════════════════════════════════════════════════════════════════
+
+  const retweetTweet = useCallback(
+    async (tweetId: number, content?: string) => {
+      if (!currentUser) throw new Error('Not authenticated');
+
+      // Optimistic update
+      setRetweetedTweets((prev) => {
+        const next = new Map(prev);
+        next.set(tweetId, -1); // -1 = pending retweet ID
+        return next;
+      });
+
+      try {
+        const response = await apiFetch<{ retweet: Retweet; retweetCount: number }>(
+          `/tweets/${tweetId}/retweet`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ content: content || null }),
+          }
+        );
+
+        const { retweet, retweetCount } = response;
+
+        // Update with actual retweet ID
+        setRetweetedTweets((prev) => {
+          const next = new Map(prev);
+          next.set(tweetId, retweet.id);
+          return next;
+        });
+
+        // Update tweet with count and userRetweet
+        const tweet = tweets.get(tweetId);
+        if (tweet) {
+          updateTweet(tweetId, {
+            retweetCount: retweetCount,
+            userRetweet: retweet,
+          });
+        }
+
+        clearError('retweetTweet');
+        return retweet;
+      } catch (err) {
+        // Revert optimistic update
+        setRetweetedTweets((prev) => {
+          const next = new Map(prev);
+          next.delete(tweetId);
+          return next;
+        });
+
+        const message = err instanceof Error ? err.message : 'Failed to retweet';
+        setError('retweetTweet', message);
+        throw err;
+      }
+    },
+    [currentUser, tweets, updateTweet, clearError, setError]
+  );
+
+  const deleteRetweet = useCallback(
+    async (retweetId: number) => {
+      if (!currentUser) throw new Error('Not authenticated');
+
+      // Find the tweet this retweet is for
+      let tweetId: number | null = null;
+      const retweetedEntry = Array.from(retweetedTweets.entries()).find(
+        ([, id]) => id === retweetId
+      );
+      if (retweetedEntry) {
+        tweetId = retweetedEntry[0];
+      }
+
+      // Optimistic update
+      if (tweetId !== null) {
+        setRetweetedTweets((prev) => {
+          const next = new Map(prev);
+          next.delete(tweetId!);
+          return next;
+        });
+
+        const tweet = tweets.get(tweetId);
+        if (tweet) {
+          updateTweet(tweetId, {
+            retweetCount: Math.max((tweet.retweetCount || 0) - 1, 0),
+            userRetweet: undefined,
+          });
+        }
+      }
+
+      try {
+        const response = await apiFetch<{ tweetId: number; retweetCount: number }>(
+          `/retweets/${retweetId}`,
+          { method: 'DELETE' }
+        );
+
+        // Update with server-confirmed count
+        if (response.tweetId) {
+          updateTweet(response.tweetId, {
+            retweetCount: response.retweetCount,
+            userRetweet: undefined,
+          });
+        }
+
+        clearError('deleteRetweet');
+      } catch (err) {
+        // Revert optimistic update
+        if (tweetId !== null && retweetedEntry) {
+          setRetweetedTweets((prev) => {
+            const next = new Map(prev);
+            next.set(tweetId, retweetId);
+            return next;
+          });
+
+          const tweet = tweets.get(tweetId);
+          if (tweet) {
+            updateTweet(tweetId, {
+              retweetCount: (tweet.retweetCount || 0) + 1,
+            });
+          }
+        }
+
+        const message = err instanceof Error ? err.message : 'Failed to delete retweet';
+        setError('deleteRetweet', message);
+        throw err;
+      }
+    },
+    [currentUser, tweets, retweetedTweets, updateTweet, clearError, setError]
+  );
+
+  const hasRetweeted = useCallback((tweetId: number) => {
+    return retweetedTweets.has(tweetId);
+  }, [retweetedTweets]);
+
+  const initializeRetweets = useCallback((tweets: Tweet[]) => {
+    const retweeted = new Map<number, number>();
+    tweets.forEach((tweet) => {
+      if (tweet.userRetweet) {
+        retweeted.set(tweet.id, tweet.userRetweet.id);
+      }
+    });
+    setRetweetedTweets(retweeted);
+  }, []);
+
   // ═════════════════════════════════════════════════════════════════════════
   // ACTIONS: Profiles
   // ═════════════════════════════════════════════════════════════════════════
@@ -795,6 +940,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     followingUsers,
     likedTweets,
     blockedUsers,
+    retweetedTweets,
     isLoadingFeed,
     isLoadingProfile,
     feedPage,
@@ -818,6 +964,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initializeLikes,
     pinTweet,
     unpinTweet,
+    retweetTweet,
+    deleteRetweet,
+    hasRetweeted,
+    initializeRetweets,
     setUserProfile,
     fetchUserProfile,
     fetchUserTweets,

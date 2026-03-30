@@ -58,11 +58,18 @@ class Tweet
     #[Groups(['default'])]
     private bool $isPinned = false;
 
+    /**
+     * @var Collection<int, Retweet>
+     */
+    #[ORM\OneToMany(targetEntity: Retweet::class, mappedBy: 'originalTweet')]
+    private Collection $retweets;
+
     public function __construct()
     {
         $this->likedByUsers = new ArrayCollection();
         $this->replies = new ArrayCollection();
         $this->medias = [];
+        $this->retweets = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -207,6 +214,36 @@ class Tweet
     public function setIsPinned(bool $isPinned): static
     {
         $this->isPinned = $isPinned;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Retweet>
+     */
+    public function getRetweets(): Collection
+    {
+        return $this->retweets;
+    }
+
+    public function addRetweet(Retweet $retweet): static
+    {
+        if (!$this->retweets->contains($retweet)) {
+            $this->retweets->add($retweet);
+            $retweet->setOriginalTweet($this);
+        }
+
+        return $this;
+    }
+
+    public function removeRetweet(Retweet $retweet): static
+    {
+        if ($this->retweets->removeElement($retweet)) {
+            // set the owning side to null (unless already changed)
+            if ($retweet->getOriginalTweet() === $this) {
+                $retweet->setOriginalTweet(null);
+            }
+        }
 
         return $this;
     }

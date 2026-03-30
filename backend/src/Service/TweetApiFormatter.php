@@ -11,6 +11,7 @@ class TweetApiFormatter
     public function __construct(
         private BlockedAccountService $blockedAccountService,
         private MediaUrlResolver $mediaUrlResolver,
+        private \App\Repository\RetweetRepository $retweetRepository,
     ) {
     }
 
@@ -49,6 +50,9 @@ class TweetApiFormatter
             $tweetData['isLiked'] = $currentUser instanceof User
                 ? $currentUser->getLikedTweets()->contains($tweet)
                 : false;
+            
+            // Add retweet count
+            $tweetData['retweetCount'] = $this->retweetRepository->countByTweet($tweet->getId());
             
             // Add media URLs (always include, even if empty array)
             if (is_array($tweet->getMedias())) {

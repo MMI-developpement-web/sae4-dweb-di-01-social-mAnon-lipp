@@ -113,6 +113,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['default'])]
     private bool $readOnly = false;
 
+    /**
+     * @var Collection<int, Retweet>
+     */
+    #[ORM\OneToMany(targetEntity: Retweet::class, mappedBy: 'author')]
+    private Collection $retweets;
+
     public function __construct()
     {
         $this->tokens = new ArrayCollection();
@@ -125,6 +131,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->replies = new ArrayCollection();
         $this->blockedUsers = new ArrayCollection();
         $this->blockedByUsers = new ArrayCollection();
+        $this->retweets = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -526,6 +533,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setReadOnly(bool $readOnly): static
     {
         $this->readOnly = $readOnly;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Retweet>
+     */
+    public function getRetweets(): Collection
+    {
+        return $this->retweets;
+    }
+
+    public function addRetweet(Retweet $retweet): static
+    {
+        if (!$this->retweets->contains($retweet)) {
+            $this->retweets->add($retweet);
+            $retweet->setAuthor($this);
+        }
+
+        return $this;
+    }
+
+    public function removeRetweet(Retweet $retweet): static
+    {
+        if ($this->retweets->removeElement($retweet)) {
+            // set the owning side to null (unless already changed)
+            if ($retweet->getAuthor() === $this) {
+                $retweet->setAuthor(null);
+            }
+        }
 
         return $this;
     }

@@ -27,6 +27,19 @@ export interface Reply {
   createdAt: string;
 }
 
+export interface Retweet {
+  id: number;
+  originalTweetId?: number;
+  author: {
+    id: number;
+    username: string;
+    profilePicture?: string;
+  };
+  content?: string;
+  createdAt: string;
+  originalTweet?: Tweet;
+}
+
 export interface Tweet {
   id: number;
   content: string;
@@ -40,6 +53,8 @@ export interface Tweet {
   updatedAt?: string;
   isLiked?: boolean;
   isPinned?: boolean;
+  retweetCount?: number;
+  userRetweet?: Retweet;
   medias?: Array<{
     url: string;
     type: 'image' | 'video';
@@ -69,6 +84,7 @@ export interface AppState {
   followingUsers: Set<number>;        // IDs of users the current user follows
   likedTweets: Set<number>;           // IDs of tweets liked by current user
   blockedUsers: Set<number>;          // IDs of users the current user has blocked
+  retweetedTweets: Map<number, number>;  // Map of tweetId -> retweetId for tweets retweeted by current user
   
   // UI State
   isLoadingFeed: boolean;
@@ -177,6 +193,29 @@ export interface StoreActions {
    * Unpin a tweet from user's profile
    */
   unpinTweet: (tweetId: number) => Promise<void>;
+  
+  // ─── Retweet actions ───────────────────────────────────────────────────
+  
+  /**
+   * Retweet a tweet (with optional comment)
+   */
+  retweetTweet: (tweetId: number, content?: string) => Promise<Retweet>;
+  
+  /**
+   * Delete a retweet
+   */
+  deleteRetweet: (retweetId: number) => Promise<void>;
+  
+  /**
+   * Check if current user has retweeted a tweet
+   */
+  hasRetweeted: (tweetId: number) => boolean;
+  
+  /**
+   * Initialize retweets from a list of tweets (used when loading feeds)
+   * Populates the retweetedTweets Map with tweet IDs where userRetweet is set
+   */
+  initializeRetweets: (tweets: Tweet[]) => void;
   
   // ─── Profile actions ───────────────────────────────────────────────────
   

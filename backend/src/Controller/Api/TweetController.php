@@ -13,6 +13,7 @@ use App\Service\TweetService;
 use App\Service\TweetUploadService;
 use App\Service\LikeService;
 use App\Service\BlockService;
+use App\Repository\RetweetRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,6 +31,7 @@ class TweetController extends AbstractController
 
     public function __construct(
         private TweetRepository $tweetRepository,
+        private RetweetRepository $retweetRepository,
         private PaginationResolver $paginationResolver,
         private TweetApiFormatter $tweetApiFormatter,
         private TweetService $tweetService,
@@ -54,16 +56,37 @@ class TweetController extends AbstractController
         $offset = $pagination['offset'];
 
         $tweets = $this->tweetRepository->findFeedForUser($user->getId(), $perPage, $offset);
-        $total = $this->tweetRepository->countFeedForUser($user->getId());
+        $retweets = $this->retweetRepository->findFeedForUser($user->getId(), $perPage, $offset);
+        
+        $totalTweets = $this->tweetRepository->countFeedForUser($user->getId());
+        $totalRetweets = $this->retweetRepository->countFeedForUser($user->getId());
 
         $formattedTweets = $this->tweetApiFormatter->formatCollection($tweets, $user);
 
+        // Format retweets
+        $formattedRetweets = array_map(
+            fn ($retweet) => [
+                'id' => $retweet->getId(),
+                'type' => 'retweet',
+                'content' => $retweet->getContent(),
+                'createdAt' => $retweet->getCreatedAt(),
+                'author' => [
+                    'id' => $retweet->getAuthor()->getId(),
+                    'username' => $retweet->getAuthor()->getUsername(),
+                    'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($retweet->getAuthor()->getProfilePicture()),
+                ],
+                'originalTweet' => $this->tweetApiFormatter->format($retweet->getOriginalTweet(), $user),
+            ],
+            $retweets
+        );
+
         return $this->json([
             'tweets' => $formattedTweets,
+            'retweets' => $formattedRetweets,
             'pagination' => [
                 'current_page' => $page,
                 'per_page' => $perPage,
-                'total_items' => $total,
+                'total_items' => $totalTweets + $totalRetweets,
             ],
         ], 200);
     }
@@ -113,7 +136,24 @@ class TweetController extends AbstractController
             $searchDto->user ?? '',
             $startDate
         );
-        $total = $this->tweetRepository->countSearchFeedForUser(
+        
+        $retweets = $this->retweetRepository->searchFeedForUser(
+            $user->getId(),
+            $searchDto->per_page,
+            $offset,
+            $searchDto->q ?? '',
+            $searchDto->user ?? '',
+            $startDate
+        );
+        
+        $totalTweets = $this->tweetRepository->countSearchFeedForUser(
+            $user->getId(),
+            $searchDto->q ?? '',
+            $searchDto->user ?? '',
+            $startDate
+        );
+        
+        $totalRetweets = $this->retweetRepository->countSearchFeedForUser(
             $user->getId(),
             $searchDto->q ?? '',
             $searchDto->user ?? '',
@@ -122,12 +162,30 @@ class TweetController extends AbstractController
 
         $formattedTweets = $this->tweetApiFormatter->formatCollection($tweets, $user);
 
+        // Format retweets
+        $formattedRetweets = array_map(
+            fn ($retweet) => [
+                'id' => $retweet->getId(),
+                'type' => 'retweet',
+                'content' => $retweet->getContent(),
+                'createdAt' => $retweet->getCreatedAt(),
+                'author' => [
+                    'id' => $retweet->getAuthor()->getId(),
+                    'username' => $retweet->getAuthor()->getUsername(),
+                    'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($retweet->getAuthor()->getProfilePicture()),
+                ],
+                'originalTweet' => $this->tweetApiFormatter->format($retweet->getOriginalTweet(), $user),
+            ],
+            $retweets
+        );
+
         return $this->json([
             'tweets' => $formattedTweets,
+            'retweets' => $formattedRetweets,
             'pagination' => [
                 'current_page' => $searchDto->page,
                 'per_page' => $searchDto->per_page,
-                'total_items' => $total,
+                'total_items' => $totalTweets + $totalRetweets,
             ],
         ], 200);
     }

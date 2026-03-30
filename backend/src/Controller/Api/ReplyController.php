@@ -61,8 +61,14 @@ class ReplyController extends AbstractController
                 $this->parseMultipartManually($request);
             }
 
-            // Get content from request
-            $content = $request->request->get('content', '');
+            // Get content from request (JSON or form data)
+            if (str_starts_with($contentType, 'application/json')) {
+                $data = $request->toArray();
+                $content = $data['content'] ?? '';
+            } else {
+                $content = $request->request->get('content', '');
+            }
+            
             if (!is_string($content)) {
                 $content = '';
             }

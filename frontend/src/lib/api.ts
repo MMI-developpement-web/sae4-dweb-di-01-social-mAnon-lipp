@@ -151,6 +151,19 @@ export interface TweetAuthor {
   profilePicture?: string;
 }
 
+export interface Retweet {
+  id: number;
+  content?: string;
+  author: TweetAuthor;
+  createdAt: string;
+  originalTweetId?: number;
+}
+
+export interface RetweetDisplay extends Retweet {
+  type: 'retweet';
+  originalTweet: Tweet;
+}
+
 export interface Tweet {
   id: number;
   content: string;
@@ -160,6 +173,8 @@ export interface Tweet {
   likeCount?: number;
   isLiked?: boolean;
   isPinned?: boolean;
+  retweetCount?: number;
+  userRetweet?: Retweet;
   medias?: Array<{
     url: string;
     type: 'image' | 'video';
@@ -204,6 +219,7 @@ interface RawCurrentUserResponse extends User {
 
 export interface TweetsResponse {
   tweets: Tweet[];
+  retweets: RetweetDisplay[];
   pagination: Pagination;
 }
 

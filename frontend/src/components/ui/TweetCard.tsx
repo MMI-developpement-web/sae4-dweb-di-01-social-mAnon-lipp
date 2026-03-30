@@ -12,6 +12,7 @@ import ReplyForm from "./ReplyForm";
 import ReplyList from "./ReplyList";
 import ConfirmDeleteModal from "../ConfirmDeleteModal";
 import EditTweetModal from "../EditTweetModal";
+import RetweetModal from "../RetweetModal";
 
 const tweetCardVariants = cva(
   "flex gap-3 items-start rounded-lg p-4 w-full",
@@ -29,6 +30,8 @@ interface TweetCardProps extends VariantProps<typeof tweetCardVariants> {
   tweet: Tweet;
   className?: string;
   onDelete?: (tweetId: number) => void;
+  hideReplies?: boolean;
+  onRetweetCreated?: (retweet: any) => void;
 }
 
 function formatDate(isoDate: string): string {
@@ -47,7 +50,7 @@ function formatDate(isoDate: string): string {
   });
 }
 
-export default function TweetCard({ tweet, variant, className, onDelete }: TweetCardProps) {
+export default function TweetCard({ tweet, variant, className, onDelete, hideReplies = false, onRetweetCreated }: TweetCardProps) {
   const navigate = useNavigate();
   const {
     currentUser,
@@ -58,6 +61,9 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
     updateTweet,
     pinTweet: pinTweetAction,
     unpinTweet: unpinTweetAction,
+    retweetTweet,
+    deleteRetweet,
+    hasRetweeted,
     isLiked,
     errors,
     clearError,
@@ -65,12 +71,14 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showRetweetModal, setShowRetweetModal] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replies, setReplies] = useState<Reply[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isModifying, setIsModifying] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
+  const [isRetweeting, setIsRetweeting] = useState(false);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
 
   // Load replies from tweet when component mounts or tweet changes
@@ -258,6 +266,57 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
     }
   };
 
+  const handleRetweetModal = () => {
+    if (currentUser && hasRetweeted(tweet.id)) {
+      // If already retweeted, delete the retweet
+      const currentTweet = tweets.get(tweet.id) || tweet;
+      if (currentTweet.userRetweet) {
+        handleDeleteRetweet(currentTweet.userRetweet.id);
+      }
+    } else {
+      // Open modal to add optional comment
+      setShowRetweetModal(true);
+    }
+  };
+
+  const handleRetweet = async (content?: string) => {
+    setIsRetweeting(true);
+    try {
+      const retweet = await retweetTweet(tweet.id, content);
+      clearError('retweetTweet');
+      
+      // Notify parent that a retweet was created
+      // Get the updated tweet from the Store to ensure retweetCount is current
+      if (onRetweetCreated) {
+        const updatedTweet = tweets.get(tweet.id) || tweet;
+        onRetweetCreated({
+          ...retweet,
+          type: 'retweet',
+          originalTweet: updatedTweet,
+        });
+      }
+      
+      setShowRetweetModal(false);
+    } catch (error) {
+      console.error("Erreur lors du retweet:", error);
+      throw error;
+    } finally {
+      setIsRetweeting(false);
+    }
+  };
+
+  const handleDeleteRetweet = async (retweetId: number) => {
+    setIsRetweeting(true);
+    try {
+      await deleteRetweet(retweetId);
+      clearError('deleteRetweet');
+    } catch (error) {
+      console.error("Erreur lors de la suppression du retweet:", error);
+    } finally {
+      setIsRetweeting(false);
+    }
+  };
+
   return (
     <>
       <article className={cn(tweetCardVariants({ variant }), className)}>
@@ -408,7 +467,8 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
           <div className="flex justify-end gap-8 pt-3 mt-2">
             <button
               onClick={() => setShowReplyForm(!showReplyForm)}
-              className="text-tweet-meta hover:bg-blue-50 hover:text-blue-500 rounded-full p-2 transition-colors flex items-center gap-2 text-sm"
+              disabled={hideReplies}
+              className="text-tweet-meta hover:bg-blue-50 hover:text-blue-500 rounded-full p-2 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-tweet-meta"
               aria-label="Répondre au tweet"
             >
               <svg
@@ -421,6 +481,35 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               </svg>
               {replies.length > 0 && <span>{replies.length}</span>}
+            </button>
+            <button
+              onClick={handleRetweetModal}
+              disabled={isRetweeting}
+              className={cn(
+                "rounded-full p-2 transition-colors flex items-center gap-2 text-sm",
+                hasRetweeted(tweet.id)
+                  ? "text-green-500 hover:bg-green-50"
+                  : "text-tweet-meta hover:bg-green-50 hover:text-green-500"
+              )}
+              aria-label={hasRetweeted(tweet.id) ? "Annuler le retweet" : "Retweeter"}
+            >
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill={hasRetweeted(tweet.id) ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="17 2 19 4 17 6"></polyline>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <polyline points="7 22 5 20 7 18"></polyline>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              {currentTweet.retweetCount && currentTweet.retweetCount > 0 && (
+                <span>{currentTweet.retweetCount}</span>
+              )}
             </button>
             <Heart
               isLiked={isCurrentUserLiked}
@@ -466,11 +555,19 @@ export default function TweetCard({ tweet, variant, className, onDelete }: Tweet
         onCancel={() => setShowEditModal(false)}
       />
 
+      {/* Retweet modal */}
+      <RetweetModal
+        isOpen={showRetweetModal}
+        onClose={() => setShowRetweetModal(false)}
+        onConfirm={handleRetweet}
+        isLoading={isRetweeting}
+      />
+
       {/* Reply form and list */}
-      {showReplyForm && (
+      {showReplyForm && !hideReplies && (
         <ReplyForm tweet={tweet} onReplyCreated={handleReplyCreated} />
       )}
-      <ReplyList replies={replies} />
+      {!hideReplies && <ReplyList replies={replies} />}
     </>
   );
 }

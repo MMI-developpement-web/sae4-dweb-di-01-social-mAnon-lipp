@@ -3,6 +3,7 @@ import { redirect, useFetcher, useLoaderData, useNavigate } from "react-router-d
 import Header from "../components/Header";
 import NavBar from "../components/NavBar";
 import TweetCard from "../components/ui/TweetCard";
+import RetweetCard from "../components/RetweetCard";
 import Button from "../components/ui/Button";
 import SearchBar from "../components/SearchBar";
 import Avatar from "../components/ui/Avatar";
@@ -22,8 +23,37 @@ export default function Feed() {
   const initialData = useLoaderData() as TweetsResponse;
   const store = useStore();
   const navigate = useNavigate();
-  const { addTweet, initializeLikes, removeTweet } = store;
+  const { addTweet, initializeLikes, initializeRetweets, removeTweet } = store;
 
+  // Create unified feed from tweets and retweets, sorted by date
+  const createUnifiedFeed = (response: TweetsResponse): Array<{ type: 'tweet' | 'retweet'; tweet: any; retweet?: any }> => {
+    const items: Array<{ type: 'tweet' | 'retweet'; tweet: any; retweet?: any }> = [];
+    
+    // Add tweets
+    response.tweets.forEach(tweet => {
+      items.push({ type: 'tweet', tweet });
+    });
+    
+    // Add retweets with their original tweets
+    response.retweets.forEach(retweet => {
+      items.push({
+        type: 'retweet',
+        tweet: retweet.originalTweet,
+        retweet: retweet
+      });
+    });
+    
+    // Sort by date descending
+    items.sort((a, b) => {
+      const dateA = new Date(a.type === 'tweet' ? a.tweet.createdAt : a.retweet!.createdAt).getTime();
+      const dateB = new Date(b.type === 'tweet' ? b.tweet.createdAt : b.retweet!.createdAt).getTime();
+      return dateB - dateA;
+    });
+    
+    return items;
+  };
+
+  const [feedItems, setFeedItems] = useState(createUnifiedFeed(initialData));
   const [tweetIds, setTweetIds] = useState<number[]>(initialData.tweets.map(t => t.id));
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(
@@ -43,18 +73,24 @@ export default function Feed() {
 
   // Initialize Store with loaded tweets and their like state
   useEffect(() => {
-    // Add all tweets to the Store cache
+    // Add all tweets to the Store cache (including original tweets from retweets)
     initialData.tweets.forEach((tweet) => addTweet(tweet));
+    initialData.retweets.forEach((retweet) => addTweet(retweet.originalTweet));
     
     // Initialize liked tweets from the initial feed
-    initializeLikes(initialData.tweets);
-  }, [initialData.tweets, addTweet, initializeLikes]);
+    initializeLikes([...initialData.tweets, ...initialData.retweets.map(r => r.originalTweet)]);
+    
+    // Initialize retweets from the initial feed
+    initializeRetweets([...initialData.tweets, ...initialData.retweets.map(r => r.originalTweet)]);
+  }, [initialData.tweets, initialData.retweets, addTweet, initializeLikes, initializeRetweets]);
 
   const fetchFeedData = useCallback(async () => {
     const newData = await fetchTweets(1, PER_PAGE);
     // Add to store
     newData.tweets.forEach((tweet) => addTweet(tweet));
-    // Update feed tweet IDs
+    newData.retweets.forEach((retweet) => addTweet(retweet.originalTweet));
+    // Update feed items with unified list
+    setFeedItems(createUnifiedFeed(newData));
     setTweetIds(newData.tweets.map(t => t.id));
     setCurrentPage(1);
     setTotalItems(newData.pagination.total_items);
@@ -89,8 +125,35 @@ export default function Feed() {
       // Sinon, recherche de tweets
       setCurrentSearchType("tweets");
       const results = await searchTweets(1, PER_PAGE, filters);
+      
+      // Add tweets and original tweets from retweets to store
       results.tweets.forEach((tweet) => addTweet(tweet));
-      setTweetIds(results.tweets.map(t => t.id));
+      results.retweets.forEach((retweet) => addTweet(retweet.originalTweet));
+      
+      // Create unified feed items, sorted by date
+      const searchItems: Array<{ type: 'tweet' | 'retweet'; tweet: any; retweet?: any }> = [];
+      results.tweets.forEach(tweet => {
+        searchItems.push({ type: 'tweet', tweet });
+      });
+      results.retweets.forEach(retweet => {
+        searchItems.push({
+          type: 'retweet',
+          tweet: retweet.originalTweet,
+          retweet: retweet
+        });
+      });
+      
+      // Sort by date descending
+      searchItems.sort((a, b) => {
+        const dateA = new Date(a.type === 'tweet' ? a.tweet.createdAt : a.retweet!.createdAt).getTime();
+        const dateB = new Date(b.type === 'tweet' ? b.tweet.createdAt : b.retweet!.createdAt).getTime();
+        return dateB - dateA;
+      });
+      
+      // Set tweet IDs from all items
+      const allTweetIds = searchItems.map(item => item.type === 'tweet' ? item.tweet.id : item.tweet.id);
+      setFeedItems(searchItems);
+      setTweetIds(allTweetIds);
       setTotalItems(results.pagination.total_items);
     } catch (error) {
       console.error("Search error:", error);
@@ -142,15 +205,25 @@ export default function Feed() {
   }, [loadMore]);
 
   const handleTweetDeleted = (tweetId: number) => {
-    setTweetIds((prev) => prev.filter((id) => id !== tweetId));
+    // Remove from feed items
+    setFeedItems((prev) => prev.filter((item) => item.tweet.id !== tweetId));
     removeTweet(tweetId);
     setTotalItems((prev) => Math.max(0, prev - 1));
   };
 
-  // Get tweets from Store by their IDs
-  const tweets = tweetIds
-    .map((id) => store.tweets.get(id))
-    .filter((t): t is typeof initialData.tweets[0] => !!t);
+  const handleRetweetCreated = (retweet: any) => {
+    // Add new retweet to the start of the feed
+    const newFeedItem = {
+      type: 'retweet' as const,
+      tweet: retweet.originalTweet,
+      retweet: retweet
+    };
+    
+    setFeedItems((prev) => [newFeedItem, ...prev]);
+    // Add original tweet to store if not already there
+    addTweet(retweet.originalTweet);
+    setTotalItems((prev) => prev + 1);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -214,17 +287,27 @@ export default function Feed() {
         {/* Tweet results */}
         {(isSearching && currentSearchType === "tweets") || !isSearching ? (
           <>
-            {tweets.length === 0 ? (
+            {feedItems.length === 0 ? (
               <p className="text-center text-tweet-meta text-sm py-8">
                 {isSearching ? "Aucun tweet trouvé." : "Aucun tweet pour le moment."}
               </p>
             ) : (
-              tweets.map((tweet) => (
-                <TweetCard
-                  key={tweet.id}
-                  tweet={tweet}
-                  onDelete={handleTweetDeleted}
-                />
+              feedItems.map((item) => (
+                item.type === 'tweet' ? (
+                  <TweetCard
+                    key={`tweet-${item.tweet.id}`}
+                    tweet={item.tweet}
+                    onDelete={handleTweetDeleted}
+                    onRetweetCreated={handleRetweetCreated}
+                  />
+                ) : (
+                  <RetweetCard
+                    key={`retweet-${item.retweet!.id}`}
+                    retweet={item.retweet!}
+                    onDelete={handleTweetDeleted}
+                    onRetweetCreated={handleRetweetCreated}
+                  />
+                )
               ))
             )}
           </>
