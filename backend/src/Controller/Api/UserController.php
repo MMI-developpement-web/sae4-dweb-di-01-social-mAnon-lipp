@@ -45,7 +45,7 @@ class UserController extends AbstractController
      * Get user profile by ID
      * GET /api/users/{id}
      */
-    #[Route('/users/{id}', name: 'api.users.show', methods: ['GET'])]
+    #[Route('/users/{id}', name: 'api.users.show', methods: ['GET'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
 
     public function show(int $id, #[CurrentUser] User $currentUser): JsonResponse
@@ -123,10 +123,46 @@ class UserController extends AbstractController
     }
 
     /**
+     * Search users by partial username
+     * GET /api/users/search?q=term
+     */
+    #[Route('/users/search', name: 'api.users.search', methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
+    public function search(Request $request): JsonResponse
+    {
+        $q = (string) $request->query->get('q', '');
+        if (trim($q) === '') {
+            return $this->json(['users' => []], 200);
+        }
+
+        $users = $this->userVisibilityResolver->findVisibleByUsernameLike($q, 10);
+
+        $formattedUsers = [];
+        foreach ($users as $user) {
+            $formattedUsers[] = [
+                'id' => $user->getId(),
+                'email' => $user->getEmail(),
+                'username' => $user->getUsername(),
+                'bio' => $user->getBio(),
+                'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($user->getProfilePicture()),
+                'bannerPicture' => $this->mediaUrlResolver->resolveUploadPath($user->getBannerPicture()),
+                'location' => $user->getLocation(),
+                'website' => $user->getWebsite(),
+                'followerCount' => $this->followService->getFollowerCount($user),
+                'followingCount' => $this->followService->getFollowingCount($user),
+                'isFollowing' => false,
+                'isBlocked' => false,
+            ];
+        }
+
+        return $this->json(['users' => $formattedUsers], 200);
+    }
+
+    /**
      * Get user's tweets
      * GET /api/users/{id}/tweets?page=1&per_page=20
      */
-    #[Route('/users/{id}/tweets', name: 'api.users.tweets', methods: ['GET'])]
+    #[Route('/users/{id}/tweets', name: 'api.users.tweets', methods: ['GET'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
     public function tweets(int $id, Request $request, #[CurrentUser] User $currentUser): JsonResponse
     {
@@ -164,7 +200,7 @@ class UserController extends AbstractController
      * Follow a user
      * POST /api/users/{id}/follow
      */
-    #[Route('/users/{id}/follow', name: 'api.users.follow', methods: ['POST'])]
+    #[Route('/users/{id}/follow', name: 'api.users.follow', methods: ['POST'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
     public function follow(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
@@ -197,7 +233,7 @@ class UserController extends AbstractController
      * Unfollow a user
      * DELETE /api/users/{id}/follow
      */
-    #[Route('/users/{id}/follow', name: 'api.users.unfollow', methods: ['DELETE'])]
+    #[Route('/users/{id}/follow', name: 'api.users.unfollow', methods: ['DELETE'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
     public function unfollow(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
@@ -222,7 +258,7 @@ class UserController extends AbstractController
      * Block a user
      * POST /api/users/{id}/block
      */
-    #[Route('/users/{id}/block', name: 'api.users.block', methods: ['POST'])]
+    #[Route('/users/{id}/block', name: 'api.users.block', methods: ['POST'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
     public function block(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
@@ -250,7 +286,7 @@ class UserController extends AbstractController
      * Unblock a user
      * DELETE /api/users/{id}/block
      */
-    #[Route('/users/{id}/block', name: 'api.users.unblock', methods: ['DELETE'])]
+    #[Route('/users/{id}/block', name: 'api.users.unblock', methods: ['DELETE'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
     public function unblock(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
@@ -274,7 +310,7 @@ class UserController extends AbstractController
      * Get blocked users for current user
      * GET /api/users/{id}/blocked
      */
-    #[Route('/users/{id}/blocked', name: 'api.users.blocked', methods: ['GET'])]
+    #[Route('/users/{id}/blocked', name: 'api.users.blocked', methods: ['GET'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
     public function blocked(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
@@ -312,7 +348,7 @@ class UserController extends AbstractController
      * Update user profile
      * PUT /api/users/{id}
      */
-    #[Route('/users/{id}', name: 'api.users.update', methods: ['PUT'])]
+    #[Route('/users/{id}', name: 'api.users.update', methods: ['PUT'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
     public function update(
         int $id,
@@ -325,42 +361,24 @@ class UserController extends AbstractController
         }
 
         $contentType = $request->headers->get('Content-Type', '');
-        
-        // Parse multipart form data for non-POST requests
+
         if (str_starts_with($contentType, 'multipart/form-data')) {
-            $parsed = $this->parseMultipartRequest($request);
-            $data = $parsed['fields'];
-            
-            // Convert parsed files to UploadedFile objects
-            $uploadedFiles = [];
-            foreach ($parsed['files'] as $fieldName => $fileInfo) {
-                error_log("DEBUG: Creating UploadedFile for $fieldName from " . $fileInfo['tmp_name']);
-                $uploadedFiles[$fieldName] = new UploadedFile(
-                    $fileInfo['tmp_name'],
-                    $fileInfo['name'],
-                    $fileInfo['type'],
-                    $fileInfo['error'],
-                    true  // TEST MODE - trust the file is valid
-                );
-                error_log("DEBUG: UploadedFile created: " . $uploadedFiles[$fieldName]->getClientOriginalName());
-            }
+            // Parse multipart content into the Request object
+            $this->parseMultipartRequest($request);
+            $data = $request->request->all();
         } else {
             // Handle JSON requests
             $data = json_decode($request->getContent(), true) ?? [];
-            $uploadedFiles = [];
         }
-        
+
         $payload = new UpdateProfilePayload();
         $payload->bio = $data['bio'] ?? null;
         $payload->website = $data['website'] ?? null;
         $payload->location = $data['location'] ?? null;
 
-        // Get file uploads
-        $profilePicture = $uploadedFiles['profilePicture'] ?? null;
-        $bannerPicture = $uploadedFiles['bannerPicture'] ?? null;
-
-        error_log("DEBUG: profilePicture: " . (is_object($profilePicture) ? get_class($profilePicture) . " ({$profilePicture->getClientOriginalName()})" : var_export($profilePicture, true)));
-        error_log("DEBUG: bannerPicture: " . (is_object($bannerPicture) ? get_class($bannerPicture) . " ({$bannerPicture->getClientOriginalName()})" : var_export($bannerPicture, true)));
+        // Get file uploads from Request (if set)
+        $profilePicture = $request->files->get('profilePicture');
+        $bannerPicture = $request->files->get('bannerPicture');
 
         // Update profile
         try {
@@ -387,8 +405,7 @@ class UserController extends AbstractController
                 'message' => 'Profil mis à jour avec succès',
             ], 200);
         } catch (\Exception $e) {
-            error_log("ERROR in update profile: " . $e->getMessage());
-            return $this->errorJson('Erreur lors de la mise à jour: ' . $e->getMessage(), 400);
+            return $this->errorJson('Erreur lors de la mise à jour du profil', 400);
         }
     }
 
@@ -396,7 +413,7 @@ class UserController extends AbstractController
      * Update user's read-only setting
      * PATCH /api/users/{id}/read-only
      */
-    #[Route('/users/{id}/read-only', name: 'api.users.read_only', methods: ['PATCH'])]
+    #[Route('/users/{id}/read-only', name: 'api.users.read_only', methods: ['PATCH'], requirements: ['id' => '\\d+'])]
     #[IsGranted('ROLE_USER')]
     public function updateReadOnly(
         int $id,

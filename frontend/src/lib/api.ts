@@ -255,13 +255,6 @@ export async function searchTweets(
   return apiFetch<TweetsResponse>(`/tweets/search?${params.toString()}`);
 }
 
-/**
- * Search for a user by username
- * GET /api/users/by-username/{username}
- */
-export async function searchUsers(username: string): Promise<UserProfileResponse> {
-  return apiFetch<UserProfileResponse>(`/users/by-username/${encodeURIComponent(username)}`);
-}
 
 export async function postTweet(content: string): Promise<Tweet> {
   return apiFetch<Tweet>("/tweets", {
@@ -389,6 +382,10 @@ export interface UserProfileResponse {
   user: UserProfile;
 }
 
+export interface UserSearchResponse {
+  users: UserProfile[];
+}
+
 export interface FollowResponse {
   message: string;
   isFollowing: boolean;
@@ -402,10 +399,18 @@ export async function fetchUserProfile(userId: number): Promise<UserProfileRespo
   return apiFetch<UserProfileResponse>(`/users/${userId}`);
 }
 
+
 /**
- * Fetch user profile by username
- * GET /api/users/by-username/:username
+ * Search users by partial username
+ * GET /api/users/search?q=
  */
+export async function searchUsers(query: string): Promise<UserSearchResponse> {
+  const params = new URLSearchParams();
+  params.append('q', query);
+  return apiFetch<UserSearchResponse>(`/users/search?${params.toString()}`);
+}
+
+/** GET /api/users/by-username/:username */
 export async function fetchUserByUsername(username: string): Promise<UserProfileResponse> {
   return apiFetch<UserProfileResponse>(`/users/by-username/${username}`);
 }

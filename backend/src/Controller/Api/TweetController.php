@@ -18,16 +18,19 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use App\Trait\ParseMultipartTrait;
 
 #[Route('/api', format: 'json')]
 #[IsGranted('ROLE_USER')]
 class TweetController extends AbstractController
 {
     use ApiJsonResponderTrait;
+    use ParseMultipartTrait;
 
     public function __construct(
         private TweetRepository $tweetRepository,
@@ -96,16 +99,8 @@ class TweetController extends AbstractController
      * GET /api/tweets/search?q=&user=&startDate=
      */
     #[Route('/tweets/search', name: 'api.tweets.search', methods: ['GET'])]
-    public function search(Request $request, #[CurrentUser] User $user): JsonResponse
+    public function search(#[MapQueryString] SearchQueryDTO $searchDto, #[CurrentUser] User $user): JsonResponse
     {
-        // Build SearchQueryDTO from query parameters
-        $searchDto = new \App\Dto\Payload\SearchQueryDTO();
-        $searchDto->q = $request->query->get('q');
-        $searchDto->user = $request->query->get('user');
-        $searchDto->startDate = $request->query->get('startDate');
-        $searchDto->page = (int) $request->query->get('page', 1);
-        $searchDto->per_page = (int) $request->query->get('per_page', 20);
-
         // Validate the DTO
         $violations = $this->validator->validate($searchDto);
         if (count($violations) > 0) {
@@ -246,8 +241,7 @@ class TweetController extends AbstractController
             $formattedTweet = $this->tweetApiFormatter->format($tweet, $user);
             return $this->json($formattedTweet, 201);
         } catch (\Exception $e) {
-            error_log("ERROR in create tweet: " . $e->getMessage());
-            return $this->errorJson('Erreur lors de la création du tweet: ' . $e->getMessage(), 400);
+            return $this->errorJson('Erreur lors de la création du tweet', 400);
         }
     }
 
@@ -293,13 +287,12 @@ class TweetController extends AbstractController
 
         $contentType = strtolower((string) $request->headers->get('Content-Type', ''));
         
-        // Parse multipart manually if Symfony didn't
+        // Parse multipart content into $request->files / $request->request when needed
         if (str_starts_with($contentType, 'multipart/form-data')) {
-            $this->parseMultipartManually($request);
+            $this->parseMultipartRequest($request);
         }
-        
+
         $content = $this->extractTweetContent($request);
-        error_log("DEBUG UPDATE: Found content: '" . $content . "'");
 
         try {
             // Validate content not empty and not too long
@@ -312,10 +305,8 @@ class TweetController extends AbstractController
             }
 
             // Check if media was explicitly modified (this flag tells us the user edited media)
-            $mediaModified = $request->request->has('mediaModified') && 
+            $mediaModified = $request->request->has('mediaModified') &&
                            $request->request->get('mediaModified') === 'true';
-            
-            error_log("DEBUG UPDATE: mediaModified=" . ($mediaModified ? 'true' : 'false'));
 
             $medias = [];
             $existingMedias = $tweet->getMedias() ?? [];
@@ -333,8 +324,6 @@ class TweetController extends AbstractController
                     }
                 }
                 
-                error_log("DEBUG UPDATE: existingMediaIndices=" . json_encode($existingMediaIndices) . ", existing count=" . count($existingMedias));
-                
                 // Keep only the medias at the specified indices
                 foreach ($existingMediaIndices as $idx) {
                     if (isset($existingMedias[$idx])) {
@@ -343,22 +332,17 @@ class TweetController extends AbstractController
                 }
             } else {
                 // User didn't modify media - keep existing ones
-                error_log("DEBUG UPDATE: No media modification, keeping existing " . count($existingMedias) . " medias");
                 $medias = $existingMedias;
             }
 
             // Add new media files from FormData (if any)
             if (str_starts_with($contentType, 'multipart/form-data')) {
                 $mediaFiles = $this->extractMediaFiles($request);
-                error_log("DEBUG UPDATE: Found " . count($mediaFiles) . " new media files");
-                
                 if (!empty($mediaFiles)) {
                     $newMedias = $this->tweetUploadService->uploadTweetMedias($mediaFiles);
                     $medias = array_merge($medias, $newMedias);
                 }
             }
-
-            error_log("DEBUG UPDATE: Final medias count=" . count($medias));
 
             // Update the tweet using the service
             // When media was modified, always pass the array (even if empty) so images get properly cleared
@@ -368,10 +352,7 @@ class TweetController extends AbstractController
             $formattedTweet = $this->tweetApiFormatter->format($tweet, $user);
             return $this->json($formattedTweet, 200);
         } catch (\Exception $e) {
-            error_log("Exception in update tweet: " . get_class($e) . " - " . $e->getMessage());
-            error_log("File: " . $e->getFile() . ":" . $e->getLine());
-            error_log("Trace: " . $e->getTraceAsString());
-            return $this->errorJson('Erreur: ' . $e->getMessage(), 400);
+            return $this->errorJson('Erreur lors de la mise à jour du tweet', 400);
         }
     }
 

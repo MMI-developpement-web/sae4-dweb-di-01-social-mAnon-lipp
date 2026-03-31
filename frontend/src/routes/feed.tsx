@@ -111,7 +111,21 @@ export default function Feed() {
         try {
           const userResult = await searchUsers(filters.q);
           setCurrentSearchType("users");
-          setSearchResults(userResult);
+          // Handle zero, one or multiple matches
+          if (!userResult.users || userResult.users.length === 0) {
+            setSearchResults({ notFound: true });
+            setTweetIds([]);
+            return;
+          }
+
+          if (userResult.users.length === 1) {
+            setSearchResults({ user: userResult.users[0] });
+            setTweetIds([]);
+            return;
+          }
+
+          // Multiple results
+          setSearchResults({ users: userResult.users });
           setTweetIds([]);
           return;
         } catch (error: any) {
@@ -262,7 +276,7 @@ export default function Feed() {
               <p className="text-center text-tweet-meta text-sm py-8">
                 Aucun utilisateur trouvé.
               </p>
-            ) : (
+            ) : searchResults.user ? (
               <button
                 onClick={() => navigate(`/profile/${searchResults.user.id}`)}
                 className="flex items-center gap-4 p-4 rounded-lg border border-border-muted hover:bg-gray-50 transition-colors text-left"
@@ -280,7 +294,24 @@ export default function Feed() {
                   </div>
                 </div>
               </button>
-            )}
+            ) : searchResults.users ? (
+              <div className="grid gap-2">
+                {searchResults.users.map((u: any) => (
+                  <button
+                    key={u.id}
+                    onClick={() => navigate(`/profile/${u.id}`)}
+                    className="flex items-center gap-4 p-4 rounded-lg border border-border-muted hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <Avatar src={u.profilePicture} alt={u.username} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-text">{u.username}</div>
+                      <div className="text-sm text-tweet-meta break-words">{u.bio || "Aucune bio"}</div>
+                      <div className="text-xs text-tweet-meta mt-2">{u.followerCount} abonnés · {u.followingCount} abonnements</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </>
         )}
 

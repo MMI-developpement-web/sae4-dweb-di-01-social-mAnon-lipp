@@ -35,4 +35,24 @@ class UserVisibilityResolver
 
         return $user;
     }
+
+    /**
+     * Find visible users whose username starts with the provided term.
+     * Returns an array of User entities (may be empty).
+     *
+     * @return User[]
+     */
+    public function findVisibleByUsernameLike(string $term, int $limit = 10): array
+    {
+        $users = $this->userRepository->findByUsernameLike($term, $limit);
+
+        $visible = [];
+        foreach ($users as $user) {
+            if (!$this->blockedAccountService->isUserBlocked($user)) {
+                $visible[] = $user;
+            }
+        }
+
+        return $visible;
+    }
 }

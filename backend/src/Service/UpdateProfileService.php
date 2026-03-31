@@ -62,18 +62,12 @@ class UpdateProfileService
      */
     private function uploadFile(UploadedFile $file): string
     {
-        error_log("DEBUG uploadFile: Starting upload for " . $file->getClientOriginalName());
-        error_log("DEBUG uploadFile: Temp path: " . $file->getPathname());
-        error_log("DEBUG uploadFile: Target directory: " . $this->uploadsDirectory);
-        
         // Verify uploads directory exists and is writable
         if (!is_dir($this->uploadsDirectory)) {
-            error_log("ERROR: Uploads directory doesn't exist: " . $this->uploadsDirectory);
             throw new FileException('Uploads directory does not exist: ' . $this->uploadsDirectory);
         }
 
         if (!is_writable($this->uploadsDirectory)) {
-            error_log("ERROR: Uploads directory is not writable: " . $this->uploadsDirectory);
             throw new FileException('Uploads directory is not writable: ' . $this->uploadsDirectory);
         }
 
@@ -81,17 +75,11 @@ class UpdateProfileService
         $safeFilename = $this->slugger->slug($originalFilename);
         $fileName = $safeFilename . '-' . uniqid() . '.' . $file->guessExtension();
 
-        error_log("DEBUG uploadFile: Safe filename: " . $fileName);
-
         try {
-            error_log("DEBUG uploadFile: Attempting to move file from " . $file->getPathname() . " to " . $this->uploadsDirectory . '/' . $fileName);
             $file->move($this->uploadsDirectory, $fileName);
-            error_log("DEBUG uploadFile: File moved successfully");
         } catch (FileException $e) {
-            error_log("ERROR uploadFile: FileException - " . $e->getMessage());
             throw new FileException('Could not upload file: ' . $e->getMessage(), 0, $e);
         } catch (\Exception $e) {
-            error_log("ERROR uploadFile: General exception - " . $e->getMessage());
             throw new FileException('Unexpected error uploading file: ' . $e->getMessage(), 0, $e);
         }
 

@@ -65,9 +65,9 @@ class TweetCrudController extends AbstractCrudController
             ->setEntityLabelInPlural('Tweets')
             ->setDefaultSort(['createdAt' => 'DESC'])
             ->setPageTitle('index', 'Tweets')
-            ->setPageTitle('detail', 'Détail du Tweet')
-            ->setSearchFields(['content', 'author.username']);
+            ->setPageTitle('detail', 'Détail du Tweet');
     }
+
 
     public function configureFields(string $pageName): iterable
     {

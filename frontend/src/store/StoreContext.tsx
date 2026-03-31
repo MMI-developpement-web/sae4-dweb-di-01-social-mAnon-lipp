@@ -929,7 +929,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLoadingProfile(loading);
   }, []);
   
-  const value: StoreContextType = {
+  const storeValue: StoreContextType = {
     // State
     currentUser,
     authToken,
@@ -987,7 +987,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
   
   return (
-    <StoreContext.Provider value={value}>
+    <StoreContext.Provider value={storeValue}>
       {children}
     </StoreContext.Provider>
   );

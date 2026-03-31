@@ -16,12 +16,14 @@ use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use App\Trait\ParseMultipartTrait;
 
 #[Route('/api', format: 'json')]
 #[IsGranted('ROLE_USER')]
 class ReplyController extends AbstractController
 {
     use ApiJsonResponderTrait;
+    use ParseMultipartTrait;
 
     public function __construct(
         private ReplyService $replyService,
@@ -56,9 +58,9 @@ class ReplyController extends AbstractController
         try {
             $contentType = strtolower((string) $request->headers->get('Content-Type', ''));
             
-            // Parse multipart manually if Symfony didn't
+            // Parse multipart content into $request->files / $request->request when needed
             if (str_starts_with($contentType, 'multipart/form-data')) {
-                $this->parseMultipartManually($request);
+                $this->parseMultipartRequest($request);
             }
 
             // Get content from request (JSON or form data)
@@ -98,8 +100,7 @@ class ReplyController extends AbstractController
         } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
             return $this->errorJson($e->getMessage(), 403);
         } catch (\Exception $e) {
-            error_log("ERROR in create reply: " . $e->getMessage());
-            return $this->errorJson('Erreur lors de la création de la réponse: ' . $e->getMessage(), 500);
+            return $this->errorJson('Erreur lors de la création de la réponse', 500);
         }
     }
 

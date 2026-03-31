@@ -32,4 +32,22 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->persist($user);
         $this->getEntityManager()->flush();
     }
+
+    /**
+     * Find users whose username starts with the given term (case-sensitive by default).
+     * Returns at most $limit users ordered by username.
+     *
+     * @return User[]
+     */
+    public function findByUsernameLike(string $term, int $limit = 10): array
+    {
+        $qb = $this->createQueryBuilder('u')
+            ->where('u.username LIKE :term')
+            ->setParameter('term', $term . '%')
+            ->orderBy('u.username', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery();
+
+        return $qb->getResult();
+    }
 }
