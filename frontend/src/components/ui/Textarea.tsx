@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
+import { forwardRef } from "react";
 import { cn } from "../../lib/utils";
 
 const textareaVariants = cva(
@@ -40,25 +41,25 @@ interface TextareaProps
   error?: string;
 }
 
-export default function Textarea({
-  variant,
-  textareaSize,
-  error,
-  className,
-  ...props
-}: TextareaProps) {
-  return (
-    <div className="flex flex-col gap-1 w-full">
-      <textarea
-        className={cn(
-          textareaVariants({ variant: error ? "error" : variant, textareaSize }),
-          className
+export default forwardRef<HTMLTextAreaElement, TextareaProps>(
+  function Textarea(
+    { variant, textareaSize, error, className, ...props },
+    ref
+  ) {
+    return (
+      <div className="flex flex-col gap-1 w-full">
+        <textarea
+          ref={ref}
+          className={cn(
+            textareaVariants({ variant: error ? "error" : variant, textareaSize }),
+            className
+          )}
+          {...props}
+        />
+        {error && (
+          <span className="text-xs text-danger font-poppins">{error}</span>
         )}
-        {...props}
-      />
-      {error && (
-        <span className="text-xs text-danger font-poppins">{error}</span>
-      )}
-    </div>
-  );
-}
+      </div>
+    );
+  }
+);

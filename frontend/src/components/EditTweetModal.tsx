@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Button from "./ui/Button";
+import MentionAutocomplete from "./MentionAutocomplete";
 import { getImageUrl } from "../lib/utils";
 import type { Tweet } from "../lib/api";
 
@@ -31,6 +32,7 @@ export default function EditTweetModal({
   const [newMedias, setNewMedias] = useState<MediaPreview[]>([]);
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -121,18 +123,26 @@ export default function EditTweetModal({
       <div className="bg-surface rounded-lg p-6 max-w-md mx-4 shadow-lg max-h-96 overflow-y-auto">
         <h2 className="text-lg font-bold text-text mb-4">Modifier le tweet</h2>
 
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          disabled={isLoading}
-          className={`w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 ${
-            isOverLimit
-              ? "border-red-400 focus:ring-red-300 text-red-700"
-              : "border-gray-300 focus:ring-blue-300"
-          }`}
-          rows={4}
-          placeholder="Quoi de neuf ?!"
-        />
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            disabled={isLoading}
+            className={`w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 ${
+              isOverLimit
+                ? "border-red-400 focus:ring-red-300 text-red-700"
+                : "border-gray-300 focus:ring-blue-300"
+            }`}
+            rows={4}
+            placeholder="Quoi de neuf ?!"
+          />
+          <MentionAutocomplete
+            textareaValue={content}
+            textareaRef={textareaRef}
+            onSelectMention={setContent}
+          />
+        </div>
 
         <div className={`text-xs mt-2 ${isOverLimit ? "text-red-500" : "text-text-muted"}`}>
           {charCount}/280

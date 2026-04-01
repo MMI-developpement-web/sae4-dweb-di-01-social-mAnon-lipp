@@ -1,12 +1,7 @@
 import { useState } from "react";
 import Input from "./ui/Input";
 import Button from "./ui/Button";
-export interface SearchFilters {
-  q: string;
-  user: string;
-  startDate: string;
-  searchType?: "tweets" | "users";
-}
+import type { SearchFilters } from "../lib/api";
 
 interface SearchBarProps {
   onSearch: (filters: SearchFilters) => void;
@@ -15,7 +10,7 @@ interface SearchBarProps {
 
 export default function SearchBar({ onSearch, isLoading = false }: SearchBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [searchType, setSearchType] = useState<"tweets" | "users">("tweets");
+  const [searchType, setSearchType] = useState<"tweets" | "users" | "hashtag">("tweets");
   const [filters, setFilters] = useState<SearchFilters>({
     q: "",
     user: "",
@@ -28,7 +23,7 @@ export default function SearchBar({ onSearch, isLoading = false }: SearchBarProp
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSearchTypeChange = (type: "tweets" | "users") => {
+  const handleSearchTypeChange = (type: "tweets" | "users" | "hashtag") => {
     setSearchType(type);
     setFilters((prev) => ({ ...prev, searchType: type }));
   };
@@ -43,9 +38,12 @@ export default function SearchBar({ onSearch, isLoading = false }: SearchBarProp
   };
 
   const hasActiveFilters = filters.q || filters.user || filters.startDate;
-  const searchPlaceholder = searchType === "users" 
-    ? "Rechercher un utilisateur..." 
-    : "Rechercher un tweet...";
+  const searchPlaceholder = 
+    searchType === "users" 
+      ? "Rechercher un utilisateur..." 
+      : searchType === "hashtag"
+      ? "Rechercher un hashtag..."
+      : "Rechercher un tweet...";
 
   return (
     <div className="w-full bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -67,6 +65,14 @@ export default function SearchBar({ onSearch, isLoading = false }: SearchBarProp
             className="rounded-full"
           >
             Utilisateurs
+          </Button>
+          <Button
+            onClick={() => handleSearchTypeChange("hashtag")}
+            variant={searchType === "hashtag" ? "primary" : "secondary"}
+            size="sm"
+            className="rounded-full"
+          >
+            Hashtags
           </Button>
         </div>
 

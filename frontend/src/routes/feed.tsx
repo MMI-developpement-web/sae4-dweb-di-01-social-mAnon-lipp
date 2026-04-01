@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { redirect, useFetcher, useLoaderData, useNavigate } from "react-router-dom";
+import { redirect, useFetcher, useLoaderData, useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import NavBar from "../components/NavBar";
 import TweetCard from "../components/ui/TweetCard";
@@ -68,6 +68,7 @@ export default function Feed() {
 
   const fetcher = useFetcher<TweetsResponse>();
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const [searchParams] = useSearchParams();
 
   const hasMore = tweetIds.length < totalItems;
 
@@ -136,6 +137,51 @@ export default function Feed() {
         }
       }
 
+      // Si recherche de hashtags
+      if (filters.searchType === "hashtag" && filters.q) {
+        const hashtagQuery = filters.q.startsWith('#') ? filters.q.slice(1) : filters.q;
+        try {
+          const results = await searchTweets(1, PER_PAGE, { q: `#${hashtagQuery}` });
+          setCurrentSearchType("tweets");
+          
+          // Add tweets and original tweets from retweets to store
+          results.tweets.forEach((tweet) => addTweet(tweet));
+          results.retweets.forEach((retweet) => addTweet(retweet.originalTweet));
+          
+          // Create unified feed items, sorted by date
+          const searchItems: Array<{ type: 'tweet' | 'retweet'; tweet: any; retweet?: any }> = [];
+          results.tweets.forEach(tweet => {
+            searchItems.push({ type: 'tweet', tweet });
+          });
+          results.retweets.forEach(retweet => {
+            searchItems.push({
+              type: 'retweet',
+              tweet: retweet.originalTweet,
+              retweet: retweet
+            });
+          });
+          
+          // Sort by date descending
+          searchItems.sort((a, b) => {
+            const dateA = new Date(a.type === 'tweet' ? a.tweet.createdAt : a.retweet!.createdAt).getTime();
+            const dateB = new Date(b.type === 'tweet' ? b.tweet.createdAt : b.retweet!.createdAt).getTime();
+            return dateB - dateA;
+          });
+          
+          const allTweetIds = searchItems.map(item => item.type === 'tweet' ? item.tweet.id : item.tweet.id);
+          setFeedItems(searchItems);
+          setTweetIds(allTweetIds);
+          setTotalItems(results.pagination.total_items);
+          setSearchResults({ hashtag: hashtagQuery, count: searchItems.length });
+        } catch (error: any) {
+          console.error("Hashtag search error:", error);
+          setSearchResults({ hashtag: filters.q, notFound: true });
+          setTweetIds([]);
+        }
+        setIsSearchLoading(false);
+        return;
+      }
+
       // Sinon, recherche de tweets
       setCurrentSearchType("tweets");
       const results = await searchTweets(1, PER_PAGE, filters);
@@ -189,6 +235,19 @@ export default function Feed() {
       setTotalItems(fetcher.data.pagination.total_items);
     }
   }, [fetcher.data, fetcher.state, addTweet]);
+
+  // Auto-execute search if query params are present
+  useEffect(() => {
+    const type = searchParams.get("type");
+    const q = searchParams.get("q");
+    
+    if (type && q) {
+      handleSearch({
+        q,
+        searchType: (type as "tweets" | "users" | "hashtag") || "tweets",
+      });
+    }
+  }, [searchParams, handleSearch]);
 
   const loadMore = useCallback(() => {
     if (fetcher.state !== "idle" || !hasMore) return;

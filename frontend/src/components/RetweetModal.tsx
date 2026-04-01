@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Button from './ui/Button';
 import Textarea from './ui/Textarea';
+import MentionAutocomplete from './MentionAutocomplete';
 import { cn } from '../lib/utils';
 
 interface RetweetModalProps {
@@ -20,6 +21,7 @@ export default function RetweetModal({
 }: RetweetModalProps) {
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const remaining = MAX_COMMENT_LENGTH - content.length;
   const isOver = remaining < 0;
@@ -42,14 +44,21 @@ export default function RetweetModal({
       <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg sm:p-6">
         <h2 className="mb-4 text-lg font-bold">Ajouter un commentaire (optionnel)</h2>
 
-        <Textarea
-          placeholder="Qu'en penses-tu ? (optionnel)"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          maxLength={MAX_COMMENT_LENGTH + 100}
-          disabled={isLoading}
-          className="mb-3"
-        />
+        <div className="relative">
+          <Textarea
+            ref={textareaRef}
+            placeholder="Qu'en penses-tu ? (optionnel)"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            maxLength={MAX_COMMENT_LENGTH + 100}
+            disabled={isLoading}
+          />
+          <MentionAutocomplete
+            textareaValue={content}
+            textareaRef={textareaRef}
+            onSelectMention={setContent}
+          />
+        </div>
 
         <div className={cn('mb-4 text-sm', remaining < 0 ? 'text-red-500 font-semibold' : 'text-gray-500')}>
           {remaining} caractères restants

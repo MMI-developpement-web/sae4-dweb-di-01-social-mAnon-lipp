@@ -1,5 +1,6 @@
 import React from "react";
 import Mention from "../components/ui/Mention";
+import Hashtag from "../components/ui/Hashtag";
 
 /**
  * Regex patterns for hashtags and mentions
@@ -111,16 +112,11 @@ export function renderTweetContent(content: string): React.ReactNode {
       return React.createElement(React.Fragment, { key: index }, segment.value);
     }
 
-    if (segment.type === "hashtag") {
-      return React.createElement(
-        "span",
-        {
-          key: index,
-          className:
-            "text-blue-500 font-semibold hover:underline cursor-pointer",
-        },
-        segment.value
-      );
+    if (segment.type === "hashtag" && segment.hashtag) {
+      return React.createElement(Hashtag, {
+        key: index,
+        hashtag: segment.hashtag,
+      });
     }
 
     if (segment.type === "mention" && segment.username) {

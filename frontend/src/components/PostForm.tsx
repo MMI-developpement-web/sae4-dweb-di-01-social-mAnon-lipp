@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "./ui/Button";
 import Textarea from "./ui/Textarea";
+import MentionAutocomplete from "./MentionAutocomplete";
 import { postTweetWithMedia } from "../lib/api";
 import { cn } from "../lib/utils";
 
@@ -23,6 +24,7 @@ export default function PostForm({ onSuccess }: PostFormProps) {
   const [loading, setLoading] = useState(false);
   const [medias, setMedias] = useState<MediaPreview[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
 
   const remaining = MAX - content.length;
@@ -120,11 +122,18 @@ export default function PostForm({ onSuccess }: PostFormProps) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <div className="relative">
         <Textarea
+          ref={textareaRef}
           variant={isOver ? "error" : "post"}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Partagez votre éclat..."
           maxLength={MAX + 1}
+        />
+        
+        <MentionAutocomplete
+          textareaValue={content}
+          textareaRef={textareaRef}
+          onSelectMention={setContent}
         />
         
         {/* Media button - positioned in bottom right corner */}

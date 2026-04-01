@@ -235,7 +235,7 @@ export interface SearchFilters {
   q?: string;
   user?: string;
   startDate?: string;
-  searchType?: "all" | "tweets" | "users";
+  searchType?: "all" | "tweets" | "users" | "hashtag";
 }
 
 export async function searchTweets(
@@ -581,6 +581,5 @@ export async function deleteReply(replyId: number): Promise<{ success: boolean }
     method: "DELETE",
   });
 }
-
 
 
