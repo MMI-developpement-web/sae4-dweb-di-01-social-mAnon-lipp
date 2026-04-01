@@ -228,6 +228,14 @@ export async function fetchTweets(page: number, perPage = 20): Promise<TweetsRes
 }
 
 /**
+ * Fetch a single tweet by ID
+ * GET /api/tweets/:id
+ */
+export async function fetchTweetById(tweetId: number): Promise<Tweet> {
+  return apiFetch<Tweet>(`/tweets/${tweetId}`);
+}
+
+/**
  * Search tweets in the feed
  * GET /api/tweets/search?q=&user=&startDate=&page=&per_page=
  */

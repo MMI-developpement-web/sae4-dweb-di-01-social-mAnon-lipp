@@ -6,11 +6,10 @@ import { fetchTweetById } from '../lib/api';
 interface UseTweetCardProps {
   tweet: Tweet;
   onDelete?: (tweetId: number) => void;
-  hideReplies?: boolean;
   onRetweetCreated?: (retweet: any) => void;
 }
 
-export function useTweetCard({ tweet, onDelete, hideReplies = false, onRetweetCreated }: UseTweetCardProps) {
+export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCardProps) {
   const {
     currentUser,
     tweets,

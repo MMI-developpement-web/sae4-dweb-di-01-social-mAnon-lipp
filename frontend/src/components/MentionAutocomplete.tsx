@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { logger } from "../lib/logger";
 import { searchUsers } from "../lib/api";
 import type { UserProfile } from "../lib/api";
 import Avatar from "./ui/Avatar";
@@ -79,7 +78,7 @@ export default function MentionAutocomplete({
       setSuggestions(response.users || []);
       setIsOpen(true);
     } catch (error) {
-      logger.error("Error fetching suggestions", error);
+      console.error("Error fetching suggestions", error);
       setSuggestions([]);
     } finally {
       setLoading(false);

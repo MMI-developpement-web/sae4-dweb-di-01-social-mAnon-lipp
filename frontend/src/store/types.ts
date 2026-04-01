@@ -187,15 +187,15 @@ export interface StoreActions {
   /**
    * Pin a tweet to user's profile (only one pinned tweet per user)
    */
-  pinTweet: (tweetId: number) => Promise<void>;
+  pinTweet: (tweetId: number) => Promise<Tweet>;
   
   /**
    * Unpin a tweet from user's profile
    */
-  unpinTweet: (tweetId: number) => Promise<void>;
-  
+  unpinTweet: (tweetId: number) => Promise<Tweet>;
+
   // ─── Retweet actions ───────────────────────────────────────────────────
-  
+
   /**
    * Retweet a tweet (with optional comment)
    */

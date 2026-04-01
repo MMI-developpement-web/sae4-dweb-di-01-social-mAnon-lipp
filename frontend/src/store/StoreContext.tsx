@@ -1,18 +1,27 @@
 /**
- * Store Context — Global state management via React Context
- * 
- * The StoreProvider component wraps the entire app and manages:
- * - User authentication state
- * - Tweet cache and feed data
- * - Like/follow relationships
- * - Error handling
- * 
- * Use the useStore() hook in any component to access state and actions.
+ * Store Context — Global state management via modular slices
+ *
+ * The StoreProvider combines multiple state slices:
+ * - Auth (user, tokens)
+ * - Tweets (cache, feed)
+ * - Relationships (likes, follows, blocks, retweets)
+ * - Profiles (user profiles cache)
+ * - UI (loading states)
+ * - Errors (error messages)
+ *
+ * Each slice is independent and can be composed together.
+ * Use useStore() to access the complete store in any component.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { User, Tweet, UserProfile, Retweet, StoreContextType } from './types';
-import { apiFetch, fetchCurrentUser, updateProfile as apiUpdateProfile, blockUser as apiBlockUser, unblockUser as apiUnblockUser, fetchBlockedUsers, pinTweet as apiPinTweet, unpinTweet as apiUnpinTweet, updateTweet as apiUpdateTweet } from '../lib/api';
+import React, { createContext, useContext, useEffect } from 'react';
+import type { User, StoreContextType } from './types';
+import { useAuthSlice } from './slices/auth';
+import { useTweetsSlice } from './slices/tweets';
+import { useRelationshipsSlice } from './slices/relationships';
+import { useProfilesSlice } from './slices/profiles';
+import { useUISlice } from './slices/ui';
+import { useErrorSlice } from './slices/errors';
+import { fetchBlockedUsers } from '../lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create Context
@@ -25,70 +34,66 @@ const StoreContext = createContext<StoreContextType | null>(null);
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // ─── Auth State ──────────────────────────────────────────────────────────
-  const [currentUser, setCurrentUserState] = useState<User | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(
-    localStorage.getItem('auth_token')
+  // Compose all slices
+  const errorSlice = useErrorSlice();
+  const uiSlice = useUISlice();
+  const profilesSlice = useProfilesSlice(errorSlice.setError, errorSlice.clearError);
+  const authSlice = useAuthSlice(
+    () => {
+      // On auth clear, reset all data
+      tweetsSlice.tweetOrder.forEach((id) => tweetsSlice.removeTweet(id));
+      profilesSlice.userProfiles.clear();
+      relationshipsSlice.likedTweets.clear();
+      relationshipsSlice.followingUsers.clear();
+      relationshipsSlice.blockedUsers.clear();
+      relationshipsSlice.retweetedTweets.clear();
+      errorSlice.clearAllErrors();
+    },
+    errorSlice.setError
   );
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  
-  // ─── Tweets State ───────────────────────────────────────────────────────
-  const [tweets, setTweets] = useState<Map<number, Tweet>>(new Map());
-  const [tweetOrder, setTweetOrder] = useState<number[]>([]);
-  
-  // ─── Profile State ──────────────────────────────────────────────────────
-  const [userProfiles, setUserProfiles] = useState<Map<number, UserProfile>>(new Map());
-  
-  // ─── Relationships State ────────────────────────────────────────────────
-  const [followingUsers, setFollowingUsers] = useState<Set<number>>(new Set());
-  const [likedTweets, setLikedTweets] = useState<Set<number>>(new Set());
-  const [blockedUsers, setBlockedUsers] = useState<Set<number>>(new Set());
-  const [retweetedTweets, setRetweetedTweets] = useState<Map<number, number>>(new Map());
-  
-  // ─── UI State ───────────────────────────────────────────────────────────
-  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-  const [feedPage, setFeedPage] = useState(1);
-  
-  // ─── Error State ────────────────────────────────────────────────────────
-  const [errors, setErrors] = useState<Record<string, string | null>>({});
+  const tweetsSlice = useTweetsSlice(
+    errorSlice.setError,
+    errorSlice.clearError,
+    uiSlice.setFeedPage
+  );
+  const relationshipsSlice = useRelationshipsSlice(
+    errorSlice.setError,
+    errorSlice.clearError,
+    tweetsSlice.updateTweet,
+    tweetsSlice.addTweet
+  );
   
   // ═════════════════════════════════════════════════════════════════════════
   // INITIALIZATION: Auth from localStorage at startup
   // ═════════════════════════════════════════════════════════════════════════
-  
+
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        setIsAuthLoading(false);
         return;
       }
 
       try {
-        const user = await fetchCurrentUser();
-        setCurrentUserState(user);
-        setAuthToken(token);
+        await authSlice.initializeAuth(token);
 
         // Load blocked users for the current user
-        try {
-          const blockedResponse = await fetchBlockedUsers(user.id);
-          const blockedIds = new Set(blockedResponse.users.map(u => u.id));
-          setBlockedUsers(blockedIds);
-          // Also add them to userProfiles
-          blockedResponse.users.forEach(profile => {
-            setUserProfile(profile);
-          });
-        } catch (error) {
-          console.error('Error loading blocked users:', error);
+        if (authSlice.currentUser) {
+          try {
+            const blockedResponse = await fetchBlockedUsers(authSlice.currentUser.id);
+            blockedResponse.users.forEach((profile) => {
+              profilesSlice.setUserProfile(profile);
+            });
+            // Set blocked users in relationships slice
+            blockedResponse.users.forEach((u) => {
+              relationshipsSlice.blockUser(u.id, authSlice.currentUser);
+            });
+          } catch (error) {
+            console.error('Error loading blocked users:', error);
+          }
         }
       } catch (error) {
-        // If token is invalid, clear it
-        localStorage.removeItem('auth_token');
-        setCurrentUserState(null);
-        setAuthToken(null);
-      } finally {
-        setIsAuthLoading(false);
+        console.error('Failed to initialize auth:', error);
       }
     };
 
@@ -98,18 +103,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'auth_token') {
         if (e.newValue) {
-          // Token was set - reload
           initializeAuth();
         } else {
-          // Token was removed - clear auth
-          setCurrentUserState(null);
-          setAuthToken(null);
-          setTweets(new Map());
-          setTweetOrder([]);
-          setUserProfiles(new Map());
-          setFollowingUsers(new Set());
-          setLikedTweets(new Set());
-          setBlockedUsers(new Set());
+          authSlice.clearAuth();
         }
       }
     };
@@ -127,865 +123,137 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.removeEventListener('authTokenChanged', handleAuthTokenChanged);
     };
   }, []);
-  
+
   // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Error Handling (declare first, used by other actions)
+  // Additional Actions: Profile Updates & Feed State
   // ═════════════════════════════════════════════════════════════════════════
-  
-  const setError = useCallback((key: string, message: string) => {
-    setErrors((prev) => ({ ...prev, [key]: message }));
-  }, []);
-  
-  const clearError = useCallback((key: string) => {
-    setErrors((prev) => ({ ...prev, [key]: null }));
-  }, []);
-  
-  const clearAllErrors = useCallback(() => {
-    setErrors({});
-  }, []);
-  
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Auth
-  // ═════════════════════════════════════════════════════════════════════════
-  
-  const setCurrentUser = useCallback((user: User, token: string) => {
-    setCurrentUserState(user);
-    setAuthToken(token);
-    localStorage.setItem('auth_token', token);
-    // Clear liked/following sets to populate with fresh data
-    setLikedTweets(new Set());
-    setFollowingUsers(new Set());
-  }, []);
-  
-  const updateCurrentUser = useCallback((updates: Partial<User>) => {
-    setCurrentUserState((prev) => {
-      if (!prev) return prev;
-      return { ...prev, ...updates };
-    });
-  }, []);
-  
-  const clearAuth = useCallback(() => {
-    setCurrentUserState(null);
-    setAuthToken(null);
-    localStorage.removeItem('auth_token');
-    // Clear all user-specific data
-    setTweets(new Map());
-    setTweetOrder([]);
-    setUserProfiles(new Map());
-    setFollowingUsers(new Set());
-    setLikedTweets(new Set());
-    setErrors({});
-  }, []);
-  
-  const initializeAuth = useCallback(async (token: string) => {
-    setIsAuthLoading(true);
+
+  const updateProfile = async (
+    bio?: string,
+    website?: string,
+    location?: string,
+    profilePicture?: File,
+    bannerPicture?: File
+  ): Promise<User> => {
+    if (!authSlice.currentUser) throw new Error('Not authenticated');
+
     try {
-      const user = await apiFetch<User>('/users/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setCurrentUser(user, token);
-    } catch (err) {
-      clearAuth();
-      throw err;
-    } finally {
-      setIsAuthLoading(false);
-    }
-  }, [setCurrentUser, clearAuth]);
-  
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Tweets
-  // ═════════════════════════════════════════════════════════════════════════
-  
-  const addTweet = useCallback((tweet: Tweet) => {
-    setTweets((prev) => {
-      const next = new Map(prev);
-      const existing = prev.get(tweet.id);
-      
-      // If tweet exists, merge with preserved local state (isPinned)
-      if (existing) {
-        next.set(tweet.id, {
-          ...tweet,
-          isPinned: existing.isPinned, // Keep local pin state
-        });
-      } else {
-        next.set(tweet.id, tweet);
-      }
-      
-      return next;
-    });
-  }, []);
-  
-  const removeTweet = useCallback((tweetId: number) => {
-    setTweets((prev) => {
-      const next = new Map(prev);
-      next.delete(tweetId);
-      return next;
-    });
-    setTweetOrder((prev) => prev.filter((id) => id !== tweetId));
-  }, []);
-  
-  const updateTweet = useCallback((tweetId: number, updates: Partial<Tweet>) => {
-    setTweets((prev) => {
-      const tweet = prev.get(tweetId);
-      const next = new Map(prev);
-      
-      if (tweet) {
-        // Merge with existing tweet
-        next.set(tweetId, { ...tweet, ...updates });
-      } else {
-        // If tweet doesn't exist in cache, add it (e.g., after modifying a tweet not in store)
-        next.set(tweetId, updates as Tweet);
-      }
-      
-      return next;
-    });
-  }, []);
-  
-  const fetchFeedTweets = useCallback(async (page: number) => {
-    setIsLoadingFeed(true);
-    try {
-      const response = await apiFetch<{
-        data: Tweet[];
-        pagination: { page: number; per_page: number; total: number };
-      }>(`/tweets?page=${page}&per_page=20`);
-      
-      const newTweets = response.data;
-      newTweets.forEach((tweet) => addTweet(tweet));
-      
-      // Append to tweet order, avoiding duplicates
-      setTweetOrder((prev) => {
-        const newIds = newTweets.map((t) => t.id).filter((id) => !prev.includes(id));
-        return [...prev, ...newIds];
-      });
-      
-      setFeedPage(page);
-      clearError('feed');
-      return newTweets;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load feed';
-      setError('feed', message);
-      throw err;
-    } finally {
-      setIsLoadingFeed(false);
-    }
-  }, [addTweet, clearError, setError]);
-  
-  const createTweet = useCallback(
-    async (content: string) => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      try {
-        const tweet = await apiFetch<Tweet>('/tweets', {
-          method: 'POST',
-          body: JSON.stringify({ content }),
-        });
-        
-        addTweet(tweet);
-        // Add to front of feed
-        setTweetOrder((prev) => [tweet.id, ...prev]);
-        clearError('createTweet');
-        return tweet;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to create tweet';
-        setError('createTweet', message);
-        throw err;
-      }
-    },
-    [currentUser, addTweet, clearError, setError]
-  );
-  
-  const deleteTweet = useCallback(async (tweetId: number) => {
-    try {
-      await apiFetch(`/tweets/${tweetId}`, { method: 'DELETE' });
-      removeTweet(tweetId);
-      clearError('deleteTweet');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete tweet';
-      setError('deleteTweet', message);
-      throw err;
-    }
-  }, [removeTweet, clearError, setError]);
-
-  const modifyTweet = useCallback(
-    async (tweetId: number, content: string, medias?: any[]) => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      try {
-        const updatedTweet = await apiUpdateTweet(tweetId, content, medias);
-        updateTweet(tweetId, updatedTweet);
-        clearError('modifyTweet');
-        return updatedTweet;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to update tweet';
-        setError('modifyTweet', message);
-        throw err;
-      }
-    },
-    [currentUser, updateTweet, clearError, setError]
-  );
-  
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Likes
-  // ═════════════════════════════════════════════════════════════════════════
-  
-  const likeTweet = useCallback(
-    async (tweetId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      // Optimistic update
-      const wasLiked = likedTweets.has(tweetId);
-      setLikedTweets((prev) => new Set(prev).add(tweetId));
-      
-      const tweet = tweets.get(tweetId);
-      if (tweet) {
-        updateTweet(tweetId, { likeCount: (tweet.likeCount ?? 0) + 1 });
-      }
-      
-      try {
-        await apiFetch(`/tweets/${tweetId}/like`, { method: 'POST' });
-        clearError('likeTweet');
-      } catch (err: any) {
-        // Revert optimistic update
-        if (!wasLiked) {
-          setLikedTweets((prev) => {
-            const next = new Set(prev);
-            next.delete(tweetId);
-            return next;
-          });
-        }
-        if (tweet) {
-          updateTweet(tweetId, { likeCount: tweet.likeCount });
-        }
-        
-        // Don't add error to store for 403 (blocked user) - handled in component
-        if (err?.status !== 403) {
-          const message = err instanceof Error ? err.message : 'Failed to like tweet';
-          setError('likeTweet', message);
-        }
-        throw err;
-      }
-    },
-    [currentUser, likedTweets, tweets, updateTweet, clearError, setError]
-  );
-  
-  const unlikeTweet = useCallback(
-    async (tweetId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      // Optimistic update
-      const wasLiked = likedTweets.has(tweetId);
-      setLikedTweets((prev) => {
-        const next = new Set(prev);
-        next.delete(tweetId);
-        return next;
-      });
-      
-      const tweet = tweets.get(tweetId);
-      if (tweet) {
-        updateTweet(tweetId, { likeCount: Math.max(0, (tweet.likeCount ?? 0) - 1) });
-      }
-      
-      try {
-        await apiFetch(`/tweets/${tweetId}/like`, { method: 'DELETE' });
-        clearError('unlikeTweet');
-      } catch (err: any) {
-        // Revert optimistic update
-        if (wasLiked) {
-          setLikedTweets((prev) => new Set(prev).add(tweetId));
-        }
-        if (tweet) {
-          updateTweet(tweetId, { likeCount: tweet.likeCount });
-        }
-        
-        // Don't add error to store for 403 (blocked user) - handled in component
-        if (err?.status !== 403) {
-          const message = err instanceof Error ? err.message : 'Failed to unlike tweet';
-          setError('unlikeTweet', message);
-        }
-        throw err;
-      }
-    },
-    [currentUser, likedTweets, tweets, updateTweet, clearError, setError]
-  );
-  
-  const isLiked = useCallback((tweetId: number) => {
-    return likedTweets.has(tweetId);
-  }, [likedTweets]);
-  
-  const initializeLikes = useCallback((tweets: Tweet[]) => {
-    const liked = new Set<number>();
-    tweets.forEach((tweet) => {
-      if (tweet.isLiked) {
-        liked.add(tweet.id);
-      }
-    });
-    setLikedTweets(liked);
-  }, []);
-  
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Pin/Unpin
-  // ═════════════════════════════════════════════════════════════════════════
-  
-  const pinTweet = useCallback(
-    async (tweetId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      // Get current tweet
-      const tweet = tweets.get(tweetId);
-      if (!tweet) throw new Error('Tweet not found in store');
-      
-      // Unpin all other tweets from current user
-      const updatedTweets = new Map(tweets);
-      updatedTweets.forEach((t) => {
-        if (t.author.id === currentUser.id && t.id !== tweetId && t.isPinned) {
-          updatedTweets.set(t.id, { ...t, isPinned: false });
-        }
-      });
-      
-      // Pin this tweet
-      updatedTweets.set(tweetId, { ...tweet, isPinned: true });
-      setTweets(updatedTweets);
-      
-      try {
-        const updatedTweet = await apiPinTweet(tweetId);
-        updateTweet(tweetId, updatedTweet);
-        clearError('pinTweet');
-      } catch (err) {
-        // Revert optimistic update
-        setTweets(tweets);
-        const message = err instanceof Error ? err.message : 'Failed to pin tweet';
-        setError('pinTweet', message);
-        throw err;
-      }
-    },
-    [currentUser, tweets, updateTweet, clearError, setError]
-  );
-  
-  const unpinTweet = useCallback(
-    async (tweetId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      // Get current tweet
-      const tweet = tweets.get(tweetId);
-      if (!tweet) throw new Error('Tweet not found in store');
-      
-      // Optimistic update
-      updateTweet(tweetId, { isPinned: false });
-      
-      try {
-        const updatedTweet = await apiUnpinTweet(tweetId);
-        updateTweet(tweetId, updatedTweet);
-        clearError('unpinTweet');
-      } catch (err) {
-        // Revert optimistic update
-        updateTweet(tweetId, { isPinned: tweet.isPinned });
-        const message = err instanceof Error ? err.message : 'Failed to unpin tweet';
-        setError('unpinTweet', message);
-        throw err;
-      }
-    },
-    [currentUser, tweets, updateTweet, clearError, setError]
-  );
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Retweet
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const retweetTweet = useCallback(
-    async (tweetId: number, content?: string) => {
-      if (!currentUser) throw new Error('Not authenticated');
-
-      // Optimistic update
-      setRetweetedTweets((prev) => {
-        const next = new Map(prev);
-        next.set(tweetId, -1); // -1 = pending retweet ID
-        return next;
-      });
-
-      try {
-        const response = await apiFetch<{ retweet: Retweet; retweetCount: number }>(
-          `/tweets/${tweetId}/retweet`,
-          {
-            method: 'POST',
-            body: JSON.stringify({ content: content || null }),
-          }
-        );
-
-        const { retweet, retweetCount } = response;
-
-        // Update with actual retweet ID
-        setRetweetedTweets((prev) => {
-          const next = new Map(prev);
-          next.set(tweetId, retweet.id);
-          return next;
-        });
-
-        // Update tweet with count and userRetweet
-        const tweet = tweets.get(tweetId);
-        if (tweet) {
-          updateTweet(tweetId, {
-            retweetCount: retweetCount,
-            userRetweet: retweet,
-          });
-        }
-
-        clearError('retweetTweet');
-        return retweet;
-      } catch (err) {
-        // Revert optimistic update
-        setRetweetedTweets((prev) => {
-          const next = new Map(prev);
-          next.delete(tweetId);
-          return next;
-        });
-
-        const message = err instanceof Error ? err.message : 'Failed to retweet';
-        setError('retweetTweet', message);
-        throw err;
-      }
-    },
-    [currentUser, tweets, updateTweet, clearError, setError]
-  );
-
-  const deleteRetweet = useCallback(
-    async (retweetId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-
-      // Find the tweet this retweet is for
-      let tweetId: number | null = null;
-      const retweetedEntry = Array.from(retweetedTweets.entries()).find(
-        ([, id]) => id === retweetId
+      const { updateProfile: apiUpdateProfile } = await import('../lib/api');
+      const response = await apiUpdateProfile(
+        authSlice.currentUser.id,
+        { bio, website, location },
+        profilePicture,
+        bannerPicture
       );
-      if (retweetedEntry) {
-        tweetId = retweetedEntry[0];
-      }
 
-      // Optimistic update
-      if (tweetId !== null) {
-        setRetweetedTweets((prev) => {
-          const next = new Map(prev);
-          next.delete(tweetId!);
-          return next;
+      const updatedUser = response.user;
+      authSlice.updateCurrentUser(updatedUser);
+
+      // Update profile cache
+      const cachedProfile = profilesSlice.userProfiles.get(authSlice.currentUser.id);
+      if (cachedProfile) {
+        profilesSlice.setUserProfile({
+          ...cachedProfile,
+          bio: updatedUser.bio,
+          website: updatedUser.website,
+          location: updatedUser.location,
+          profilePicture: updatedUser.profilePicture,
+          bannerPicture: updatedUser.bannerPicture,
         });
-
-        const tweet = tweets.get(tweetId);
-        if (tweet) {
-          updateTweet(tweetId, {
-            retweetCount: Math.max((tweet.retweetCount || 0) - 1, 0),
-            userRetweet: undefined,
-          });
-        }
       }
 
-      try {
-        const response = await apiFetch<{ tweetId: number; retweetCount: number }>(
-          `/retweets/${retweetId}`,
-          { method: 'DELETE' }
-        );
-
-        // Update with server-confirmed count
-        if (response.tweetId) {
-          updateTweet(response.tweetId, {
-            retweetCount: response.retweetCount,
-            userRetweet: undefined,
-          });
-        }
-
-        clearError('deleteRetweet');
-      } catch (err) {
-        // Revert optimistic update
-        if (tweetId !== null && retweetedEntry) {
-          setRetweetedTweets((prev) => {
-            const next = new Map(prev);
-            next.set(tweetId, retweetId);
-            return next;
-          });
-
-          const tweet = tweets.get(tweetId);
-          if (tweet) {
-            updateTweet(tweetId, {
-              retweetCount: (tweet.retweetCount || 0) + 1,
-            });
-          }
-        }
-
-        const message = err instanceof Error ? err.message : 'Failed to delete retweet';
-        setError('deleteRetweet', message);
-        throw err;
-      }
-    },
-    [currentUser, tweets, retweetedTweets, updateTweet, clearError, setError]
-  );
-
-  const hasRetweeted = useCallback((tweetId: number) => {
-    return retweetedTweets.has(tweetId);
-  }, [retweetedTweets]);
-
-  const initializeRetweets = useCallback((tweets: Tweet[]) => {
-    const retweeted = new Map<number, number>();
-    tweets.forEach((tweet) => {
-      if (tweet.userRetweet) {
-        retweeted.set(tweet.id, tweet.userRetweet.id);
-      }
-    });
-    setRetweetedTweets(retweeted);
-  }, []);
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Profiles
-  // ═════════════════════════════════════════════════════════════════════════
-  
-  const setUserProfile = useCallback((profile: UserProfile) => {
-    setUserProfiles((prev) => {
-      const next = new Map(prev);
-      next.set(profile.id, profile);
-      return next;
-    });
-  }, []);
-  
-  const fetchUserProfile = useCallback(async (userId: number) => {
-    setIsLoadingProfile(true);
-    try {
-      const profile = await apiFetch<UserProfile>(`/users/${userId}`);
-      setUserProfile(profile);
-      clearError('profile');
-      return profile;
+      errorSlice.clearError('updateProfile');
+      return updatedUser;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load profile';
-      setError('profile', message);
+      const message = err instanceof Error ? err.message : 'Failed to update profile';
+      errorSlice.setError('updateProfile', message);
       throw err;
-    } finally {
-      setIsLoadingProfile(false);
     }
-  }, [setUserProfile, clearError, setError]);
-  
-  const fetchUserTweets = useCallback(
-    async (userId: number) => {
-      try {
-        const response = await apiFetch<{
-          data: Tweet[];
-          pagination: { page: number; per_page: number; total: number };
-        }>(`/users/${userId}/tweets?page=1&per_page=50`);
-        
-        response.data.forEach((tweet) => addTweet(tweet));
-        clearError('userTweets');
-        return response.data;
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Failed to load user tweets';
-        setError('userTweets', message);
-        throw err;
-      }
-    },
-    [addTweet, clearError, setError]
-  );
-  
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Follow
-  // ═════════════════════════════════════════════════════════════════════════
-  
-  const followUser = useCallback(
-    async (userId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      // Optimistic update
-      const wasFollowing = followingUsers.has(userId);
-      setFollowingUsers((prev) => new Set(prev).add(userId));
-      
-      const profile = userProfiles.get(userId);
-      if (profile) {
-        setUserProfile({
-          ...profile,
-          followerCount: profile.followerCount + 1,
-          isFollowing: true,
-        });
-      }
-      
-      try {
-        await apiFetch(`/users/${userId}/follow`, { method: 'POST' });
-        clearError('followUser');
-      } catch (err) {
-        // Revert optimistic update
-        if (!wasFollowing) {
-          setFollowingUsers((prev) => {
-            const next = new Set(prev);
-            next.delete(userId);
-            return next;
-          });
-        }
-        if (profile) {
-          setUserProfile({
-            ...profile,
-            followerCount: profile.followerCount,
-            isFollowing: false,
-          });
-        }
-        
-        const message = err instanceof Error ? err.message : 'Failed to follow user';
-        setError('followUser', message);
-        throw err;
-      }
-    },
-    [currentUser, followingUsers, userProfiles, setUserProfile, clearError, setError]
-  );
-  
-  const unfollowUser = useCallback(
-    async (userId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      // Optimistic update
-      const wasFollowing = followingUsers.has(userId);
-      setFollowingUsers((prev) => {
-        const next = new Set(prev);
-        next.delete(userId);
-        return next;
-      });
-      
-      const profile = userProfiles.get(userId);
-      if (profile) {
-        setUserProfile({
-          ...profile,
-          followerCount: Math.max(0, profile.followerCount - 1),
-          isFollowing: false,
-        });
-      }
-      
-      try {
-        await apiFetch(`/users/${userId}/follow`, { method: 'DELETE' });
-        clearError('unfollowUser');
-      } catch (err) {
-        // Revert optimistic update
-        if (wasFollowing) {
-          setFollowingUsers((prev) => new Set(prev).add(userId));
-        }
-        if (profile) {
-          setUserProfile({
-            ...profile,
-            followerCount: profile.followerCount,
-            isFollowing: true,
-          });
-        }
-        
-        const message = err instanceof Error ? err.message : 'Failed to unfollow user';
-        setError('unfollowUser', message);
-        throw err;
-      }
-    },
-    [currentUser, followingUsers, userProfiles, setUserProfile, clearError, setError]
-  );
-  
-  const isFollowing = useCallback((userId: number) => {
-    return followingUsers.has(userId);
-  }, [followingUsers]);
-
-  // ACTIONS: Block
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const blockUser = useCallback(
-    async (userId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-
-      // Optimistic update
-      const wasBlocked = blockedUsers.has(userId);
-      setBlockedUsers((prev) => new Set(prev).add(userId));
-
-      const profile = userProfiles.get(userId);
-      if (profile) {
-        setUserProfile({
-          ...profile,
-          isBlocked: true,
-        });
-      }
-
-      try {
-        await apiBlockUser(userId);
-        clearError('blockUser');
-      } catch (err) {
-        // Revert optimistic update
-        if (!wasBlocked) {
-          setBlockedUsers((prev) => {
-            const next = new Set(prev);
-            next.delete(userId);
-            return next;
-          });
-        }
-        if (profile) {
-          setUserProfile({
-            ...profile,
-            isBlocked: false,
-          });
-        }
-
-        const message = err instanceof Error ? err.message : 'Failed to block user';
-        setError('blockUser', message);
-        throw err;
-      }
-    },
-    [currentUser, blockedUsers, userProfiles, setUserProfile, clearError, setError]
-  );
-
-  const unblockUser = useCallback(
-    async (userId: number) => {
-      if (!currentUser) throw new Error('Not authenticated');
-
-      // Optimistic update
-      const wasBlocked = blockedUsers.has(userId);
-      setBlockedUsers((prev) => {
-        const next = new Set(prev);
-        next.delete(userId);
-        return next;
-      });
-
-      const profile = userProfiles.get(userId);
-      if (profile) {
-        setUserProfile({
-          ...profile,
-          isBlocked: false,
-        });
-      }
-
-      try {
-        await apiUnblockUser(userId);
-        clearError('unblockUser');
-      } catch (err) {
-        // Revert optimistic update
-        if (wasBlocked) {
-          setBlockedUsers((prev) => new Set(prev).add(userId));
-        }
-        if (profile) {
-          setUserProfile({
-            ...profile,
-            isBlocked: true,
-          });
-        }
-
-        const message = err instanceof Error ? err.message : 'Failed to unblock user';
-        setError('unblockUser', message);
-        throw err;
-      }
-    },
-    [currentUser, blockedUsers, userProfiles, setUserProfile, clearError, setError]
-  );
-
-  const isBlocked = useCallback((userId: number) => {
-    return blockedUsers.has(userId);
-  }, [blockedUsers]);
-  
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: Update Current User Profile
-  // ═════════════════════════════════════════════════════════════════════════
-  
-  const updateProfile = useCallback(
-    async (bio?: string, website?: string, location?: string, profilePicture?: File, bannerPicture?: File): Promise<User> => {
-      if (!currentUser) throw new Error('Not authenticated');
-      
-      try {
-        const response = await apiUpdateProfile(
-          currentUser.id,
-          { bio, website, location },
-          profilePicture,
-          bannerPicture,
-        );
-        
-        // Update current user in state
-        const updatedUser = response.user;
-        setCurrentUserState(updatedUser);
-        
-        // Update profile in cache if this user's profile is cached
-        const cachedProfile = userProfiles.get(currentUser.id);
-        if (cachedProfile) {
-          setUserProfile({
-            ...cachedProfile,
-            bio: updatedUser.bio,
-            website: updatedUser.website,
-            location: updatedUser.location,
-            profilePicture: updatedUser.profilePicture,
-            bannerPicture: updatedUser.bannerPicture,
-          });
-        }
-        
-        clearError('updateProfile');
-        return updatedUser;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to update profile';
-        setError('updateProfile', message);
-        throw err;
-      }
-    },
-    [currentUser, userProfiles, setUserProfile, clearError, setError]
-  );
-  
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS: UI State
-  // ═════════════════════════════════════════════════════════════════════════
-  
-  const setFeedLoading = useCallback((loading: boolean) => {
-    setIsLoadingFeed(loading);
-  }, []);
-  
-  const setProfileLoading = useCallback((loading: boolean) => {
-    setIsLoadingProfile(loading);
-  }, []);
-  
-  const storeValue: StoreContextType = {
-    // State
-    currentUser,
-    authToken,
-    isAuthLoading,
-    tweets,
-    tweetOrder,
-    userProfiles,
-    followingUsers,
-    likedTweets,
-    blockedUsers,
-    retweetedTweets,
-    isLoadingFeed,
-    isLoadingProfile,
-    feedPage,
-    errors,
-    
-    // Actions
-    setCurrentUser,
-    updateCurrentUser,
-    clearAuth,
-    initializeAuth,
-    addTweet,
-    removeTweet,
-    updateTweet,
-    fetchFeedTweets,
-    createTweet,
-    deleteTweet,
-    modifyTweet,
-    likeTweet,
-    unlikeTweet,
-    isLiked,
-    initializeLikes,
-    pinTweet,
-    unpinTweet,
-    retweetTweet,
-    deleteRetweet,
-    hasRetweeted,
-    initializeRetweets,
-    setUserProfile,
-    fetchUserProfile,
-    fetchUserTweets,
-    updateProfile,
-    followUser,
-    unfollowUser,
-    isFollowing,
-    blockUser,
-    unblockUser,
-    isBlocked,
-    setError,
-    clearError,
-    clearAllErrors,
-    setFeedLoading,
-    setProfileLoading,
-    setFeedPage,
   };
   
+  // ═════════════════════════════════════════════════════════════════════════
+  // Combine all slices into final store value
+  // ═════════════════════════════════════════════════════════════════════════
+
+  const storeValue: StoreContextType = {
+    // Auth
+    currentUser: authSlice.currentUser,
+    authToken: authSlice.authToken,
+    isAuthLoading: authSlice.isAuthLoading,
+    setCurrentUser: authSlice.setCurrentUser,
+    updateCurrentUser: authSlice.updateCurrentUser,
+    clearAuth: authSlice.clearAuth,
+    initializeAuth: authSlice.initializeAuth,
+
+    // Tweets
+    tweets: tweetsSlice.tweets,
+    tweetOrder: tweetsSlice.tweetOrder,
+    addTweet: tweetsSlice.addTweet,
+    removeTweet: tweetsSlice.removeTweet,
+    updateTweet: tweetsSlice.updateTweet,
+    fetchFeedTweets: tweetsSlice.fetchFeedTweets,
+    createTweet: (content: string) => tweetsSlice.createTweet(authSlice.currentUser, content),
+    deleteTweet: tweetsSlice.deleteTweet,
+    modifyTweet: tweetsSlice.modifyTweet,
+
+    // Likes
+    likedTweets: relationshipsSlice.likedTweets,
+    likeTweet: (tweetId: number) =>
+      relationshipsSlice.likeTweet(tweetId, authSlice.currentUser, tweetsSlice.tweets.get(tweetId)),
+    unlikeTweet: (tweetId: number) =>
+      relationshipsSlice.unlikeTweet(tweetId, authSlice.currentUser, tweetsSlice.tweets.get(tweetId)),
+    isLiked: relationshipsSlice.isLiked,
+    initializeLikes: relationshipsSlice.initializeLikes,
+
+    // Retweets
+    retweetedTweets: relationshipsSlice.retweetedTweets,
+    retweetTweet: (tweetId: number, content?: string) =>
+      relationshipsSlice.retweetTweet(tweetId, authSlice.currentUser, content),
+    deleteRetweet: (retweetId: number) =>
+      relationshipsSlice.deleteRetweet(retweetId, authSlice.currentUser),
+    hasRetweeted: relationshipsSlice.hasRetweeted,
+    initializeRetweets: relationshipsSlice.initializeRetweets,
+
+    // Pin/Unpin
+    pinTweet: (tweetId: number) =>
+      relationshipsSlice.pinTweet(tweetId, authSlice.currentUser, tweetsSlice.tweets),
+    unpinTweet: (tweetId: number) =>
+      relationshipsSlice.unpinTweet(tweetId, authSlice.currentUser),
+
+    // Follows
+    followingUsers: relationshipsSlice.followingUsers,
+    followUser: (userId: number) => relationshipsSlice.followUser(userId, authSlice.currentUser),
+    unfollowUser: (userId: number) => relationshipsSlice.unfollowUser(userId, authSlice.currentUser),
+    isFollowing: relationshipsSlice.isFollowing,
+
+    // Blocks
+    blockedUsers: relationshipsSlice.blockedUsers,
+    blockUser: (userId: number) => relationshipsSlice.blockUser(userId, authSlice.currentUser),
+    unblockUser: (userId: number) => relationshipsSlice.unblockUser(userId, authSlice.currentUser),
+    isBlocked: relationshipsSlice.isBlocked,
+
+    // Profiles
+    userProfiles: profilesSlice.userProfiles,
+    setUserProfile: profilesSlice.setUserProfile,
+    fetchUserProfile: profilesSlice.fetchUserProfile,
+    fetchUserTweets: profilesSlice.fetchUserTweets,
+    updateProfile,
+
+    // UI
+    isLoadingFeed: uiSlice.isLoadingFeed,
+    isLoadingProfile: uiSlice.isLoadingProfile,
+    feedPage: uiSlice.feedPage,
+    setFeedLoading: uiSlice.setFeedLoading,
+    setProfileLoading: uiSlice.setProfileLoading,
+    setFeedPage: uiSlice.setFeedPage,
+
+    // Errors
+    errors: errorSlice.errors,
+    setError: errorSlice.setError,
+    clearError: errorSlice.clearError,
+    clearAllErrors: errorSlice.clearAllErrors,
+  };
+
   return (
     <StoreContext.Provider value={storeValue}>
       {children}
