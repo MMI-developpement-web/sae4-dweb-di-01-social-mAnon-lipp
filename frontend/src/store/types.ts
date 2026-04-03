@@ -23,6 +23,7 @@ export interface Reply {
     id: number;
     username: string;
     profilePicture?: string;
+    readOnly?: boolean;
   };
   createdAt: string;
 }
@@ -34,6 +35,7 @@ export interface Retweet {
     id: number;
     username: string;
     profilePicture?: string;
+    readOnly?: boolean;
   };
   content?: string;
   createdAt: string;
@@ -47,6 +49,7 @@ export interface Tweet {
     id: number;
     username: string;
     profilePicture?: string;
+    readOnly?: boolean;
   };
   likeCount?: number;
   createdAt: string;

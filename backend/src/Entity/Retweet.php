@@ -33,6 +33,10 @@ class Retweet
     #[Groups(['default'])]
     private ?\DateTimeImmutable $createdAt = null;
 
+    #[ORM\Column]
+    #[Groups(['default'])]
+    private ?bool $isCensored = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -82,6 +86,18 @@ class Retweet
     public function setCreatedAt(\DateTimeImmutable $createdAt): static
     {
         $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function isCensored(): ?bool
+    {
+        return $this->isCensored;
+    }
+
+    public function setIsCensored(bool $isCensored): static
+    {
+        $this->isCensored = $isCensored;
 
         return $this;
     }

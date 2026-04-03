@@ -88,16 +88,14 @@ export default function Retweet({
         <path d="M21 15L18 18L15 15"></path>
       </motion.svg>
 
-      {retweetCount > 0 && (
-        <motion.span
-          className="text-sm font-medium"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.2 }}
-        >
-          {retweetCount}
-        </motion.span>
-      )}
-    </motion.button>
+      <motion.span
+        className="text-sm font-medium"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2 }}
+      >
+        {retweetCount}
+      </motion.span>
+      </motion.button>
   );
 }

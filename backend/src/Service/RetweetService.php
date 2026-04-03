@@ -15,9 +15,15 @@ class RetweetService
 
     /**
      * Create a retweet of an existing tweet
+     * @throws \RuntimeException if the original tweet is censored
      */
     public function createRetweet(User $author, Tweet $originalTweet, ?string $content = null): Retweet
     {
+        // Check if the original tweet is censored
+        if ($originalTweet->isCensored()) {
+            throw new \RuntimeException('Il n\'est pas possible de retweeter un message qui enfreint les conditions d\'utilisation de la plateforme.');
+        }
+        
         $retweet = new Retweet();
         $retweet->setAuthor($author);
         $retweet->setOriginalTweet($originalTweet);

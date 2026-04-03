@@ -59,8 +59,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const relationshipsSlice = useRelationshipsSlice(
     errorSlice.setError,
     errorSlice.clearError,
-    tweetsSlice.updateTweet,
-    tweetsSlice.addTweet
+    tweetsSlice.updateTweet
   );
   
   // ═════════════════════════════════════════════════════════════════════════

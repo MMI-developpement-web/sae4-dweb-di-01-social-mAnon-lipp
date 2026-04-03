@@ -37,11 +37,17 @@ class ReplyCrudController extends AbstractCrudController
     {
         $censorAction = Action::new('censor', 'Censurer', 'fa fa-ban')
             ->linkToCrudAction('censorReply')
-            ->addCssClass('btn btn-danger');
+            ->addCssClass('btn btn-danger')
+            ->displayIf(static function ($entity) {
+                return !$entity->isCensored();
+            });
 
         $uncensorAction = Action::new('uncensor', 'Décensurer', 'fa fa-undo')
             ->linkToCrudAction('uncensorReply')
-            ->addCssClass('btn btn-success');
+            ->addCssClass('btn btn-success')
+            ->displayIf(static function ($entity) {
+                return $entity->isCensored();
+            });
 
         return $actions
             ->disable(Action::NEW, Action::EDIT)

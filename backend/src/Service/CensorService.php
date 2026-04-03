@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Reply;
+use App\Entity\Retweet;
 use App\Entity\Tweet;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -17,17 +18,25 @@ class CensorService
      * Censor a tweet
      * - Replaces content with a standard message
      * - Keeps likes and replies in DB but they won't be visible
+     * - Automatically censors all associated retweets
      *
      * @throws \RuntimeException
      */
     public function censorTweet(Tweet $tweet): void
     {
         $tweet->setIsCensored(true);
+        
+        // Automatically censor all retweets of this tweet
+        foreach ($tweet->getRetweets() as $retweet) {
+            $retweet->setIsCensored(true);
+        }
+        
         $this->entityManager->flush();
     }
 
     /**
      * Uncensor a tweet (restore original content)
+     * Also uncensors all associated retweets
      *
      * @throws \RuntimeException
      */
@@ -35,11 +44,18 @@ class CensorService
     {
         $tweet->setIsCensored(false);
         $tweet->setContent($originalContent);
+        
+        // Automatically uncensor all retweets of this tweet
+        foreach ($tweet->getRetweets() as $retweet) {
+            $retweet->setIsCensored(false);
+        }
+        
         $this->entityManager->flush();
     }
 
     /**
      * Censor a reply
+     * Note: Retweets are only supported on tweets, not replies
      *
      * @throws \RuntimeException
      */

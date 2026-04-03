@@ -21,13 +21,6 @@ const router = createBrowserRouter([
     HydrateFallback: () => null,
   },
   {
-    path: "/feed",
-    element: <Feed />,
-    loader: feedLoader,
-    errorElement: <ErrorPage />,
-    HydrateFallback: () => null,
-  },
-  {
     path: "/login",
     element: <Login />,
     errorElement: <ErrorPage />,

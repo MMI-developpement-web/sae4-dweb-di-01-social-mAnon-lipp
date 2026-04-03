@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
-import { createReply } from "../../lib/api";
-import type { Reply, Tweet } from "../../lib/api";
-import Button from "./Button";
-import Textarea from "./Textarea";
-import MentionAutocomplete from "../MentionAutocomplete";
+import { createReply } from "../lib/api";
+import type { Reply, Tweet } from "../lib/api";
+import Button from "./ui/Button";
+import Textarea from "./ui/Textarea";
+import MentionAutocomplete from "./MentionAutocomplete";
+import { useAsyncAction } from "../hooks/useAsyncAction";
 
 interface MediaPreview {
   file: File;
@@ -17,10 +18,10 @@ interface ReplyFormProps {
 }
 
 export default function ReplyForm({ tweet, onReplyCreated }: ReplyFormProps) {
+  const { isLoading, error, execute } = useAsyncAction();
+  
   const [content, setContent] = useState("");
   const [medias, setMedias] = useState<MediaPreview[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -61,32 +62,15 @@ export default function ReplyForm({ tweet, onReplyCreated }: ReplyFormProps) {
 
   const handleSubmit = async () => {
     if (!content.trim() && medias.length === 0) {
-      setError("La réponse ne peut pas être vide");
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('content', content.trim());
-      formData.append('tweetId', tweet.id.toString());
-      
-      medias.forEach((media) => {
-        formData.append('media[]', media.file);
-      });
-
+    await execute(async () => {
       const reply = await createReply(tweet.id, content.trim(), medias.map(m => m.file));
-
       setContent("");
       setMedias([]);
       onReplyCreated?.(reply);
-    } catch (err: any) {
-      setError(err?.error || "Erreur lors de la création de la réponse");
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   return (

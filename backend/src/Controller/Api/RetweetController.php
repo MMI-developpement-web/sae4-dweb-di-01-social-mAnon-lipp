@@ -9,6 +9,8 @@ use App\Entity\Retweet;
 use App\Repository\TweetRepository;
 use App\Repository\RetweetRepository;
 use App\Service\RetweetService;
+use App\Resolver\MediaUrlResolver;
+use App\Service\TweetApiFormatter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -28,6 +30,8 @@ class RetweetController extends AbstractController
         private TweetRepository $tweetRepository,
         private RetweetRepository $retweetRepository,
         private RetweetService $retweetService,
+        private MediaUrlResolver $mediaUrlResolver,
+        private TweetApiFormatter $tweetApiFormatter,
     ) {
     }
 
@@ -46,13 +50,31 @@ class RetweetController extends AbstractController
             throw new NotFoundHttpException('Tweet not found.');
         }
 
-        $retweet = $this->retweetService->createRetweet($user, $tweet, $payload->content);
+        try {
+            $retweet = $this->retweetService->createRetweet($user, $tweet, $payload->content);
+        } catch (\RuntimeException $e) {
+            return $this->json(['error' => $e->getMessage()], 422);
+        }
         
         // Count retweets for the original tweet
         $retweetCount = $this->retweetRepository->countByTweet($tweetId);
 
+        // Format retweet with proper structure including author profile picture
+        $formattedRetweet = [
+            'id' => $retweet->getId(),
+            'type' => 'retweet',
+            'content' => $retweet->getContent(),
+            'createdAt' => $retweet->getCreatedAt(),
+            'author' => [
+                'id' => $retweet->getAuthor()->getId(),
+                'username' => $retweet->getAuthor()->getUsername(),
+                'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($retweet->getAuthor()->getProfilePicture()),
+            ],
+            'originalTweet' => $this->tweetApiFormatter->format($retweet->getOriginalTweet(), $user),
+        ];
+
         return $this->json([
-            'retweet' => $retweet,
+            'retweet' => $formattedRetweet,
             'retweetCount' => $retweetCount,
         ], 201, [], ['groups' => 'default']);
     }

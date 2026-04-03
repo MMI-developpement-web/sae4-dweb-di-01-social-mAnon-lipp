@@ -46,23 +46,17 @@ export default function TweetCard({
     isCurrentUserLiked,
     isOwner,
     likeError,
+    isAuthorReadOnly,
     blockedMessage,
-    showDeleteModal,
-    showEditModal,
-    showRetweetModal,
-    showReplyForm,
+    modals,
+    closeModal,
+    loading,
     replies,
-    isDeleting,
-    isModifying,
-    isLiking,
-    isPinning,
-    isRetweeting,
+    retweetCount,
+    hasUserRetweeted,
     handleDeleteClick,
     handleEditClick,
-    setShowDeleteModal,
-    setShowEditModal,
-    setShowRetweetModal,
-    setShowReplyForm,
+    handleReplyClick,
     handleConfirmDelete,
     handleConfirmEdit,
     handleLike,
@@ -72,7 +66,7 @@ export default function TweetCard({
     handleRetweetModal,
     handleRetweet,
     handleReplyCreated,
-  } = useTweetCard({ tweet, onDelete, hideReplies, onRetweetCreated });
+  } = useTweetCard({ tweet, onDelete, onRetweetCreated });
 
   return (
     <>
@@ -95,7 +89,7 @@ export default function TweetCard({
           <TweetHeader
             tweet={currentTweet}
             isOwner={isOwner || false}
-            isPinning={isPinning}
+            isPinning={loading.pinning}
             onEdit={handleEditClick}
             onDelete={handleDeleteClick}
             onPin={handlePin}
@@ -107,16 +101,17 @@ export default function TweetCard({
           <TweetActions
             tweet={currentTweet}
             isLiked={isCurrentUserLiked}
-            isLiking={isLiking}
-            isRetweeting={isRetweeting}
-            hasRetweeted={currentTweet.userRetweet !== undefined}
-            retweetCount={currentTweet.retweetCount || 0}
+            isLiking={loading.liking}
+            isRetweeting={loading.retweeting}
+            hasRetweeted={hasUserRetweeted}
+            retweetCount={retweetCount}
             hideReplies={hideReplies}
             replyCount={replies.length}
-            onReply={() => setShowReplyForm(!showReplyForm)}
+            onReply={handleReplyClick}
             onLike={handleLike}
             onUnlike={handleUnlike}
             onRetweet={handleRetweetModal}
+            isReadOnly={isAuthorReadOnly}
           />
 
           {/* Error display */}
@@ -130,22 +125,22 @@ export default function TweetCard({
 
       <TweetModals
         tweet={currentTweet}
-        showDeleteModal={showDeleteModal}
-        showEditModal={showEditModal}
-        showRetweetModal={showRetweetModal}
-        isDeleting={isDeleting}
-        isModifying={isModifying}
-        isRetweeting={isRetweeting}
+        showDeleteModal={modals.delete}
+        showEditModal={modals.edit}
+        showRetweetModal={modals.retweet}
+        isDeleting={loading.deleting}
+        isModifying={loading.modifying}
+        isRetweeting={loading.retweeting}
         onConfirmDelete={handleConfirmDelete}
-        onCancelDelete={() => setShowDeleteModal(false)}
+        onCancelDelete={() => closeModal('delete')}
         onConfirmEdit={handleConfirmEdit}
-        onCancelEdit={() => setShowEditModal(false)}
+        onCancelEdit={() => closeModal('edit')}
         onConfirmRetweet={handleRetweet}
-        onCancelRetweet={() => setShowRetweetModal(false)}
+        onCancelRetweet={() => closeModal('retweet')}
       />
 
       {/* Reply form and list */}
-      {showReplyForm && !hideReplies && (
+      {modals.reply && !hideReplies && (
         <ReplyForm tweet={tweet} onReplyCreated={handleReplyCreated} />
       )}
       {!hideReplies && <ReplyList replies={replies} />}

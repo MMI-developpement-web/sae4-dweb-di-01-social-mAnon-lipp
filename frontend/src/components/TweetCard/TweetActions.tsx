@@ -16,6 +16,7 @@ interface TweetActionsProps {
   onLike: () => void;
   onUnlike: () => void;
   onRetweet: () => void;
+  isReadOnly?: boolean;
 }
 
 export default function TweetActions({
@@ -31,6 +32,7 @@ export default function TweetActions({
   onLike,
   onUnlike,
   onRetweet,
+  isReadOnly = false,
 }: TweetActionsProps) {
   return (
     <div className="flex justify-end gap-8 pt-3 mt-2">
@@ -38,7 +40,7 @@ export default function TweetActions({
         isActive={false}
         replyCount={replyCount}
         onReply={onReply}
-        disabled={hideReplies}
+        disabled={hideReplies || isReadOnly}
         size="md"
       />
       <Retweet

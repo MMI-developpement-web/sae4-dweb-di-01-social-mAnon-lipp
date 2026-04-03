@@ -77,6 +77,7 @@ class TweetController extends AbstractController
                     'id' => $retweet->getAuthor()->getId(),
                     'username' => $retweet->getAuthor()->getUsername(),
                     'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($retweet->getAuthor()->getProfilePicture()),
+                    'readOnly' => $retweet->getAuthor()->getReadOnly(),
                 ],
                 'originalTweet' => $this->tweetApiFormatter->format($retweet->getOriginalTweet(), $user),
             ],
@@ -168,6 +169,7 @@ class TweetController extends AbstractController
                     'id' => $retweet->getAuthor()->getId(),
                     'username' => $retweet->getAuthor()->getUsername(),
                     'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($retweet->getAuthor()->getProfilePicture()),
+                    'readOnly' => $retweet->getAuthor()->getReadOnly(),
                 ],
                 'originalTweet' => $this->tweetApiFormatter->format($retweet->getOriginalTweet(), $user),
             ],
@@ -433,13 +435,7 @@ class TweetController extends AbstractController
             return $this->errorJson('Vous n\'êtes pas autorisé à épingler ce tweet', 403);
         }
 
-        // Unpin any previously pinned tweet by this user
-        $previouslyPinned = $this->tweetRepository->findPinnedByUser($user->getId());
-        if ($previouslyPinned) {
-            $previouslyPinned->setIsPinned(false);
-        }
-
-        // Pin the new tweet
+        // Pin the tweet
         $tweet->setIsPinned(true);
         $this->tweetRepository->save($tweet, true);
 

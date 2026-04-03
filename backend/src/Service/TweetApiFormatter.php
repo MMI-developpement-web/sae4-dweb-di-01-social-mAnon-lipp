@@ -30,6 +30,7 @@ class TweetApiFormatter
                     'id' => null,
                     'username' => 'Utilisateur supprimé',
                     'profilePicture' => null,
+                    'readOnly' => false,
                 ],
                 'isDeleted' => true,
                 'medias' => [],
@@ -58,8 +59,10 @@ class TweetApiFormatter
                 'id' => $tweet->getAuthor()->getId(),
                 'username' => $authorUsername,
                 'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($tweet->getAuthor()->getProfilePicture()),
+                'readOnly' => $tweet->getAuthor()->getReadOnly(),
             ],
             'isDeleted' => false,
+            'isPinned' => $tweet->isPinned(),
         ];
 
         if (!$isBlocked && !$isCensored) {
@@ -100,6 +103,7 @@ class TweetApiFormatter
                                 'id' => $reply->getAuthor()->getId(),
                                 'username' => $reply->getAuthor()->getUsername(),
                                 'profilePicture' => $this->mediaUrlResolver->resolveUploadPath($reply->getAuthor()->getProfilePicture()),
+                                'readOnly' => $reply->getAuthor()->getReadOnly(),
                             ],
                             'medias' => is_array($reply->getMedias()) ? array_map(
                                 fn (array $media): array => [

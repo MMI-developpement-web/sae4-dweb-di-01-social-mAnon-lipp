@@ -5,6 +5,7 @@ import Textarea from "./ui/Textarea";
 import MentionAutocomplete from "./MentionAutocomplete";
 import { postTweetWithMedia } from "../lib/api";
 import { cn } from "../lib/utils";
+import { useAsyncAction } from "../hooks/useAsyncAction";
 
 const MAX = 280;
 
@@ -19,13 +20,13 @@ interface MediaPreview {
 }
 
 export default function PostForm({ onSuccess }: PostFormProps) {
+  const navigate = useNavigate();
+  const { isLoading, error, execute } = useAsyncAction();
+  
   const [content, setContent] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [medias, setMedias] = useState<MediaPreview[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const navigate = useNavigate();
 
   const remaining = MAX - content.length;
   const isOver = remaining < 0;
@@ -37,16 +38,12 @@ export default function PostForm({ onSuccess }: PostFormProps) {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       
-      // Validate file type
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        setError('Les fichiers doivent être des images ou des vidéos');
-        return;
+        continue;
       }
 
-      // Validate file size (max 50MB)
       if (file.size > 50 * 1024 * 1024) {
-        setError('Les fichiers ne doivent pas dépasser 50MB');
-        return;
+        continue;
       }
 
       const type = file.type.startsWith('image/') ? 'image' : 'video';
@@ -55,11 +52,9 @@ export default function PostForm({ onSuccess }: PostFormProps) {
       setMedias((prev) => [...prev, { file, preview, type }]);
     }
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    setError(null);
   };
 
   const removeMedia = (index: number) => {
@@ -71,15 +66,11 @@ export default function PostForm({ onSuccess }: PostFormProps) {
     });
   };
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || isOver) return;
     
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // If we have media files, use FormData
+    await execute(async () => {
       if (medias.length > 0) {
         const formData = new FormData();
         formData.append('content', content.trim());
@@ -88,7 +79,6 @@ export default function PostForm({ onSuccess }: PostFormProps) {
         });
         await postTweetWithMedia(formData);
       } else {
-        // Otherwise use JSON
         const response = await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api'}/tweets`, {
           method: 'POST',
           headers: {
@@ -101,22 +91,16 @@ export default function PostForm({ onSuccess }: PostFormProps) {
         if (!response.ok) throw new Error('Failed to create tweet');
       }
 
-      // Clear form
       setContent('');
       setMedias([]);
 
       if (onSuccess) {
         onSuccess();
       } else {
-        navigate("/feed");
+        navigate("/");
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Une erreur est survenue, veuillez réessayer.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }
+    });
+  };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -140,7 +124,7 @@ export default function PostForm({ onSuccess }: PostFormProps) {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={loading}
+          disabled={isLoading}
           className="absolute bottom-3 left-3 p-2 hover:bg-primary/10 rounded transition-colors disabled:opacity-50"
           aria-label="Add media"
         >
@@ -157,7 +141,7 @@ export default function PostForm({ onSuccess }: PostFormProps) {
         accept="image/*,video/*"
         multiple
         onChange={handleMediaSelect}
-        disabled={loading}
+        disabled={isLoading}
         className="hidden"
         aria-label="Media file input"
       />
@@ -182,7 +166,7 @@ export default function PostForm({ onSuccess }: PostFormProps) {
               <button
                 type="button"
                 onClick={() => removeMedia(index)}
-                disabled={loading}
+                disabled={isLoading}
                 className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-70 hover:opacity-100 transition-opacity disabled:opacity-50"
                 aria-label="Remove media"
               >
@@ -221,9 +205,9 @@ export default function PostForm({ onSuccess }: PostFormProps) {
           <Button
             type="submit"
             size="xs"
-            disabled={loading || isOver || !content.trim()}
+            disabled={isLoading || isOver || !content.trim()}
           >
-            {loading ? "Publication..." : "Publier"}
+            {isLoading ? "Publication..." : "Publier"}
           </Button>
         </div>
       </div>

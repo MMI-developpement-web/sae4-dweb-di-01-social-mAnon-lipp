@@ -4,8 +4,10 @@ namespace App\Controller\Api;
 
 use App\Entity\Tweet;
 use App\Entity\Reply;
+use App\Entity\Retweet;
 use App\Repository\TweetRepository;
 use App\Repository\ReplyRepository;
+use App\Repository\RetweetRepository;
 use App\Service\CensorService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,6 +23,7 @@ class AdminCensorController extends AbstractController
     public function __construct(
         private TweetRepository $tweetRepository,
         private ReplyRepository $replyRepository,
+        private RetweetRepository $retweetRepository,
         private CensorService $censorService,
     ) {
     }
@@ -108,6 +111,50 @@ class AdminCensorController extends AbstractController
         return $this->json([
             'message' => 'Réponse décensurée avec succès',
             'reply' => ['id' => $reply->getId(), 'isCensored' => $reply->isCensored()],
+        ], 200);
+    }
+
+    /**
+     * Censor a retweet
+     * POST /api/admin/retweets/{id}/censor
+     */
+    #[Route('/retweets/{id}/censor', name: 'api.admin.retweets.censor', methods: ['POST'])]
+    public function censorRetweet(int $id): JsonResponse
+    {
+        $retweet = $this->retweetRepository->find($id);
+
+        if (!$retweet) {
+            return $this->errorJson('Retweet non trouvé', 404);
+        }
+
+        $retweet->setIsCensored(true);
+        $this->retweetRepository->save($retweet, true);
+
+        return $this->json([
+            'message' => 'Retweet censuré avec succès',
+            'retweet' => ['id' => $retweet->getId(), 'isCensored' => $retweet->isCensored()],
+        ], 200);
+    }
+
+    /**
+     * Uncensor a retweet
+     * POST /api/admin/retweets/{id}/uncensor
+     */
+    #[Route('/retweets/{id}/uncensor', name: 'api.admin.retweets.uncensor', methods: ['POST'])]
+    public function uncensorRetweet(int $id): JsonResponse
+    {
+        $retweet = $this->retweetRepository->find($id);
+
+        if (!$retweet) {
+            return $this->errorJson('Retweet non trouvé', 404);
+        }
+
+        $retweet->setIsCensored(false);
+        $this->retweetRepository->save($retweet, true);
+
+        return $this->json([
+            'message' => 'Retweet décensuré avec succès',
+            'retweet' => ['id' => $retweet->getId(), 'isCensored' => $retweet->isCensored()],
         ], 200);
     }
 }

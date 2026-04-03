@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../store/StoreContext';
 import type { Tweet, Reply } from '../lib/api';
 import { fetchTweetById } from '../lib/api';
+import { handleBlockedError } from '../lib/blocked-error-handler';
 
 interface UseTweetCardProps {
   tweet: Tweet;
@@ -31,16 +32,27 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
   // STATE MANAGEMENT
   // ─────────────────────────────────────────────────────────────────────────
 
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showRetweetModal, setShowRetweetModal] = useState(false);
-  const [showReplyForm, setShowReplyForm] = useState(false);
+  // Consolidated modal states
+  const [modals, setModals] = useState({
+    delete: false,
+    edit: false,
+    retweet: false,
+    reply: false,
+  });
+
+  // Consolidated loading states
+  const [loading, setLoading] = useState({
+    deleting: false,
+    modifying: false,
+    liking: false,
+    pinning: false,
+    retweeting: false,
+  });
+
+  // Data states
   const [replies, setReplies] = useState<Reply[]>([]);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isModifying, setIsModifying] = useState(false);
-  const [isLiking, setIsLiking] = useState(false);
-  const [isPinning, setIsPinning] = useState(false);
-  const [isRetweeting, setIsRetweeting] = useState(false);
+  const [retweetCount, setRetweetCount] = useState<number>(tweet.retweetCount || 0);
+  const [hasUserRetweeted, setHasUserRetweeted] = useState<boolean>(tweet.userRetweet !== undefined);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -55,12 +67,27 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
     } else {
       setReplies([]);
     }
-  }, [tweet.id, tweets]);
+  }, [tweet, tweets]);
+
+  // Load retweet count and user retweet status from store
+  useEffect(() => {
+    const tweetToUse = tweets.get(tweet.id) || tweet;
+    setRetweetCount(tweetToUse.retweetCount || 0);
+    setHasUserRetweeted(tweetToUse.userRetweet !== undefined);
+  }, [tweet, tweets]);
 
   // Reset blocked message on tweet change
   useEffect(() => {
     setBlockedMessage(null);
   }, [tweet.id]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MODAL STATE HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const closeModal = (modal: keyof typeof modals) => {
+    setModals(prev => ({ ...prev, [modal]: false }));
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
   // DERIVED STATE
@@ -70,17 +97,26 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
   const isCurrentUserLiked = isLiked(tweet.id);
   const isOwner = currentUser && currentUser.id === tweet.author.id;
   const likeError = errors['likeTweet'] || errors['unlikeTweet'] || null;
+  const isAuthorReadOnly = tweet.author.readOnly === true;
 
   // ─────────────────────────────────────────────────────────────────────────
   // HANDLERS - MODALS
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleDeleteClick = () => {
-    setShowDeleteModal(true);
+    setModals(prev => ({ ...prev, delete: true }));
   };
 
   const handleEditClick = () => {
-    setShowEditModal(true);
+    setModals(prev => ({ ...prev, edit: true }));
+  };
+
+  const handleReplyClick = () => {
+    if (isAuthorReadOnly) {
+      setBlockedMessage(`${tweet.author.username} n'autorise pas les réponses sur ce compte.`);
+      return;
+    }
+    setModals(prev => ({ ...prev, reply: !prev.reply }));
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -88,15 +124,15 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleConfirmDelete = async () => {
-    setIsDeleting(true);
+    setLoading(prev => ({ ...prev, deleting: true }));
     try {
       await deleteTweet(tweet.id);
-      setShowDeleteModal(false);
+      closeModal('delete');
       onDelete?.(tweet.id);
       clearError('deleteTweet');
     } catch (error) {
       console.error('Erreur lors de la suppression du tweet', error);
-      setIsDeleting(false);
+      setLoading(prev => ({ ...prev, deleting: false }));
     }
   };
 
@@ -105,7 +141,7 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
     remainingMediaIndices: number[],
     newMediaFiles: File[]
   ) => {
-    setIsModifying(true);
+    setLoading(prev => ({ ...prev, modifying: true }));
     try {
       const mediaWasModified =
         remainingMediaIndices.length !== (currentTweet.medias?.length ?? 0) ||
@@ -161,72 +197,74 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
       }
 
       updateTweet(tweet.id, updatedTweet);
-      setShowEditModal(false);
+      closeModal('edit');
       clearError('modifyTweet');
     } catch (error) {
       console.error('Erreur lors de la modification du tweet', error);
     } finally {
-      setIsModifying(false);
+      setLoading(prev => ({ ...prev, modifying: false }));
     }
   };
 
   const handleLike = async () => {
-    setIsLiking(true);
+    setLoading(prev => ({ ...prev, liking: true }));
     try {
       await likeTweet(tweet.id);
       clearError('likeTweet');
       setBlockedMessage(null);
     } catch (error: any) {
-      if (error?.status === 403) {
-        setBlockedMessage('Vous avez été bloqué par cet utilisateur');
+      const { isBlocked, message } = handleBlockedError(error);
+      if (isBlocked) {
+        setBlockedMessage(message);
       } else {
         console.error('Erreur lors du like', error);
         setBlockedMessage(null);
       }
     } finally {
-      setIsLiking(false);
+      setLoading(prev => ({ ...prev, liking: false }));
     }
   };
 
   const handleUnlike = async () => {
-    setIsLiking(true);
+    setLoading(prev => ({ ...prev, liking: true }));
     try {
       await unlikeTweet(tweet.id);
       clearError('unlikeTweet');
       setBlockedMessage(null);
     } catch (error: any) {
-      if (error?.status === 403) {
-        setBlockedMessage('Vous avez été bloqué par cet utilisateur');
+      const { isBlocked, message } = handleBlockedError(error);
+      if (isBlocked) {
+        setBlockedMessage(message);
       } else {
         console.error('Erreur lors du unlike', error);
         setBlockedMessage(null);
       }
     } finally {
-      setIsLiking(false);
+      setLoading(prev => ({ ...prev, liking: false }));
     }
   };
 
   const handlePin = async () => {
-    setIsPinning(true);
+    setLoading(prev => ({ ...prev, pinning: true }));
     try {
       await pinTweetAction(tweet.id);
       clearError('pinTweet');
     } catch (error) {
       console.error("Erreur lors de l'épinglage du tweet", error);
     } finally {
-      setIsPinning(false);
+      setLoading(prev => ({ ...prev, pinning: false }));
     }
   };
 
   const handleUnpin = async () => {
-    setIsPinning(true);
+    setLoading(prev => ({ ...prev, pinning: true }));
     try {
       await unpinTweetAction(tweet.id);
       clearError('unpinTweet');
     } catch (error) {
       console.error('Erreur lors du désépinglage du tweet', error);
     } finally {
-      setIsPinning(false);
+      setLoading(prev => ({ ...prev, pinning: false }));
     }
   };
 
@@ -237,23 +275,18 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
         handleDeleteRetweet(currentTweet.userRetweet.id);
       }
     } else {
-      setShowRetweetModal(true);
+      setModals(prev => ({ ...prev, retweet: true }));
     }
   };
 
   const handleRetweet = async (content?: string) => {
-    setIsRetweeting(true);
+    setLoading(prev => ({ ...prev, retweeting: true }));
     try {
       const retweet = await retweetTweet(tweet.id, content);
       clearError('retweetTweet');
 
-      // Refetch the tweet to ensure counter is up-to-date
-      try {
-        const updatedTweet = await fetchTweetById(tweet.id);
-        updateTweet(tweet.id, updatedTweet);
-      } catch (error) {
-        console.error('Failed to refetch tweet after retweet', error);
-      }
+      // The store already updates via onUpdateTweet in relationshipsSlice,
+      // no need to refetch the tweet
 
       if (onRetweetCreated) {
         const updatedTweet = tweets.get(tweet.id) || tweet;
@@ -264,17 +297,17 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
         });
       }
 
-      setShowRetweetModal(false);
+      closeModal('retweet');
     } catch (error) {
       console.error('Erreur lors du retweet', error);
       throw error;
     } finally {
-      setIsRetweeting(false);
+      setLoading(prev => ({ ...prev, retweeting: false }));
     }
   };
 
   const handleDeleteRetweet = async (retweetId: number) => {
-    setIsRetweeting(true);
+    setLoading(prev => ({ ...prev, retweeting: true }));
     try {
       await deleteRetweet(retweetId);
       clearError('deleteRetweet');
@@ -289,7 +322,7 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
     } catch (error) {
       console.error('Erreur lors de la suppression du retweet', error);
     } finally {
-      setIsRetweeting(false);
+      setLoading(prev => ({ ...prev, retweeting: false }));
     }
   };
 
@@ -297,7 +330,7 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
     const updatedReplies = [...replies, reply];
     setReplies(updatedReplies);
     updateTweet(tweet.id, { replies: updatedReplies });
-    setShowReplyForm(false);
+    closeModal('reply');
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -305,17 +338,17 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
   // ─────────────────────────────────────────────────────────────────────────
 
   return {
-    // State
-    showDeleteModal,
-    showEditModal,
-    showRetweetModal,
-    showReplyForm,
+    // Modal states
+    modals,
+    closeModal,
+
+    // Loading states
+    loading,
+
+    // Data states
     replies,
-    isDeleting,
-    isModifying,
-    isLiking,
-    isPinning,
-    isRetweeting,
+    retweetCount,
+    hasUserRetweeted,
     blockedMessage,
 
     // Derived state
@@ -323,14 +356,12 @@ export function useTweetCard({ tweet, onDelete, onRetweetCreated }: UseTweetCard
     isCurrentUserLiked,
     isOwner,
     likeError,
+    isAuthorReadOnly,
 
     // Modal handlers
     handleDeleteClick,
     handleEditClick,
-    setShowDeleteModal,
-    setShowEditModal,
-    setShowRetweetModal,
-    setShowReplyForm,
+    handleReplyClick,
 
     // Async handlers
     handleConfirmDelete,

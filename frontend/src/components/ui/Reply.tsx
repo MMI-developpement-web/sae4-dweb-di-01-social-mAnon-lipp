@@ -46,15 +46,18 @@ export default function Reply({
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    onReply?.();
+    if (!disabled && !isLoading) {
+      onReply?.();
+    }
   };
 
   return (
     <motion.button
       onClick={handleClick}
       disabled={disabled || isLoading}
+      title={disabled ? "Ce compte n'autorise pas les réponses" : "Répondre"}
       className={cn(
-        "flex items-center gap-2 rounded-full p-2 transition-colors hover:bg-blue-50 disabled:hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed",
+        "flex items-center gap-2 rounded-full p-2 transition-colors hover:bg-blue-50 disabled:hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed relative",
         isActive ? "text-blue-500" : "text-gray-400",
         className
       )}
@@ -81,6 +84,11 @@ export default function Reply({
       >
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </motion.svg>
+      {disabled && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-5 h-0.5 bg-current"></div>
+        </div>
+      )}
 
       {replyCount > 0 && (
         <motion.span

@@ -65,25 +65,15 @@ export default function LoginForm() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <div className="flex flex-col gap-2">
-            <Input
-              label="Saisissez votre mot de passe"
-              type="password"
-              placeholder="Mot de passe"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <div className="flex justify-end">
-              <Link
-                to="/forgot-password"
-                className="font-poppins text-xs text-primary hover:underline"
-              >
-                Mot de passe oublié ?
-              </Link>
-            </div>
-          </div>
+          <Input
+            label="Saisissez votre mot de passe"
+            type="password"
+            placeholder="Mot de passe"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </div>
 
         <div className="flex flex-col gap-12">

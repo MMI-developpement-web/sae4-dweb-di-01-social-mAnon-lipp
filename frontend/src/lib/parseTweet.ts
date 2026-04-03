@@ -2,14 +2,6 @@ import React from "react";
 import Mention from "../components/ui/Mention";
 import Hashtag from "../components/ui/Hashtag";
 
-/**
- * Regex patterns for hashtags and mentions
- * - Hashtag: # followed by word characters
- * - Mention: @ followed by word characters
- */
-const HASHTAG_REGEX = /#(\w+)/g;
-const MENTION_REGEX = /(@)(\w+)/g;
-
 interface ParsedSegment {
   type: "text" | "hashtag" | "mention";
   value: string;
@@ -20,6 +12,7 @@ interface ParsedSegment {
 /**
  * Parse tweet content to extract hashtags and mentions
  * Returns an array of segments that can be rendered
+ * Note: regex patterns are created locally to avoid lastIndex persistence bugs
  */
 export function parseTweetContent(content: string): ParsedSegment[] {
   if (!content) return [];
@@ -35,23 +28,25 @@ export function parseTweetContent(content: string): ParsedSegment[] {
     value: string;
   }> = [];
 
-  // Find hashtags
+  // Find hashtags - create regex locally to reset lastIndex
+  const hashtagRegex = /#(\w+)/g;
   let hashtagMatch;
-  while ((hashtagMatch = HASHTAG_REGEX.exec(content)) !== null) {
+  while ((hashtagMatch = hashtagRegex.exec(content)) !== null) {
     matches.push({
       start: hashtagMatch.index,
-      end: HASHTAG_REGEX.lastIndex,
+      end: hashtagRegex.lastIndex,
       type: "hashtag",
       value: hashtagMatch[1],
     });
   }
 
-  // Find mentions
+  // Find mentions - create regex locally to reset lastIndex
+  const mentionRegex = /@(\w+)/g;
   let mentionMatch;
-  while ((mentionMatch = MENTION_REGEX.exec(content)) !== null) {
+  while ((mentionMatch = mentionRegex.exec(content)) !== null) {
     matches.push({
       start: mentionMatch.index,
-      end: MENTION_REGEX.lastIndex,
+      end: mentionRegex.lastIndex,
       type: "mention",
       value: mentionMatch[2],
     });

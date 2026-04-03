@@ -53,8 +53,7 @@ export type RelationshipsSlice = RelationshipsState & RelationshipsActions;
 export const useRelationshipsSlice = (
   onError?: (key: string, message: string) => void,
   onClearError?: (key: string) => void,
-  onUpdateTweet?: (tweetId: number, updates: Partial<Tweet>) => void,
-  onAddTweet?: (tweet: Tweet) => void
+  onUpdateTweet?: (tweetId: number, updates: Partial<Tweet>) => void
 ): RelationshipsSlice => {
   const [likedTweets, setLikedTweets] = useState<Set<number>>(new Set());
   const [followingUsers, setFollowingUsers] = useState<Set<number>>(new Set());
@@ -393,14 +392,6 @@ export const useRelationshipsSlice = (
 
       const tweet = tweets.get(tweetId);
       if (!tweet) throw new Error('Tweet not found in store');
-
-      const updatedTweets = new Map(tweets);
-      updatedTweets.forEach((t) => {
-        if (t.author.id === currentUser.id && t.id !== tweetId && t.isPinned) {
-          updatedTweets.set(t.id, { ...t, isPinned: false });
-          onUpdateTweet?.(t.id, { isPinned: false });
-        }
-      });
 
       onUpdateTweet?.(tweetId, { isPinned: true });
 
