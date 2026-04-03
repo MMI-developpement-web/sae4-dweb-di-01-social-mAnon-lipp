@@ -5,7 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import type { User } from '../types';
-import { apiFetch, fetchCurrentUser } from '../../lib/api';
+import { fetchCurrentUser } from '../../lib/api';
 
 export interface AuthState {
   currentUser: User | null;
